@@ -1,0 +1,230 @@
+/* ─── Layout ────────────────────────────────────────────────────── */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: #0f0f1e;
+  color: #ccd;
+  font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+}
+
+.main-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.left-sidebar {
+  width: 220px;
+  min-width: 200px;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #1e2840;
+  overflow-y: auto;
+  background: #12121f;
+}
+
+.canvas-area {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.right-sidebar {
+  width: 240px;
+  min-width: 220px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #1e2840;
+  overflow-y: auto;
+  background: #12121f;
+}
+
+/* ─── Toolbar ───────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  height: 44px;
+  background: #0d0d1c;
+  border-bottom: 1px solid #1e2840;
+  flex-shrink: 0;
+}
+
+.toolbar-logo {
+  font-weight: 700;
+  font-size: 15px;
+  color: #c8e0ff;
+  margin-right: 4px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #1e2840;
+  margin: 0 4px;
+}
+
+.toolbar-btn {
+  background: #1a1a2e;
+  border: 1px solid #2a3a5a;
+  color: #9ab;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.toolbar-btn:hover {
+  background: #1e2840;
+  color: #c8e0ff;
+}
+
+/* ─── Panel ─────────────────────────────────────────────────────── */
+.panel {
+  flex-shrink: 0;
+  padding: 8px 8px 12px;
+  border-bottom: 1px solid #1a1a2e;
+}
+
+.panel-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5566aa;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #1a1a2e;
+}
+
+/* ─── Palette ───────────────────────────────────────────────────── */
+.node-palette {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.cat-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 2px;
+  transition: background 0.15s;
+}
+.cat-header:hover { background: #1e2240; }
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  margin-bottom: 2px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: grab;
+  transition: opacity 0.15s;
+  user-select: none;
+}
+.palette-item:hover { opacity: 0.85; }
+.palette-item:active { cursor: grabbing; }
+
+/* ─── Tree Manager ──────────────────────────────────────────────── */
+.tree-manager {
+  flex-shrink: 0;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s;
+}
+.tree-item:hover { background: #1a1a2e; }
+.tree-item.active {
+  background: #1e2840;
+  border-color: #2a4a7a;
+  color: #c8e0ff;
+}
+
+.tree-btn {
+  background: none;
+  border: none;
+  color: #5566aa;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  line-height: 1.2;
+}
+.tree-btn:hover { color: #c8e0ff; background: #1e2840; }
+.tree-btn.danger:hover { color: #e04040; background: #2a1a1a; }
+
+/* ─── Properties & Debug ────────────────────────────────────────── */
+.properties-panel {
+  flex: 1;
+  overflow-y: auto;
+}
+.debug-panel {
+  flex-shrink: 0;
+}
+
+/* ─── Buttons ───────────────────────────────────────────────────── */
+.btn-primary {
+  background: #1e3a6e;
+  border: 1px solid #2a5a9a;
+  color: #c8e0ff;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #2a4a8a; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-secondary {
+  background: #1a1a2e;
+  border: 1px solid #2a3a5a;
+  color: #8899bb;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-secondary:hover { background: #1e2240; color: #c8e0ff; }
+.btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-danger {
+  background: #2a1a1a;
+  border: 1px solid #5a2a2a;
+  color: #e08080;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-danger:hover { background: #3a2020; color: #ff8080; }
+
+/* ─── React Flow overrides ──────────────────────────────────────── */
+.react-flow__attribution { display: none; }
