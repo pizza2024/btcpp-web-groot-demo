@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { useBTStore } from '../store/btStore';
 import { CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeCategory, BTNodeDefinition } from '../types/bt';
-import AddNodeModal from './AddNodeModal';
+import NodeModal, { type NodeModalData, type NodeModalSaveResult } from './NodeModal';
 
 const CATEGORIES: BTNodeCategory[] = ['Control', 'Decorator', 'Action', 'Condition', 'SubTree'];
 
 const NodePalette: React.FC = () => {
-  const { project, addNodeModel, deleteNodeModel } = useBTStore();
+  const { project, addNodeModel, updateNodeModel, deleteNodeModel } = useBTStore();
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(CATEGORIES));
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingDef, setEditingDef] = useState<BTNodeDefinition | null>(null);
 
   const toggleCat = (cat: string) => {
     setExpandedCats((prev) => {
@@ -28,9 +29,21 @@ const NodePalette: React.FC = () => {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleAddNode = (def: BTNodeDefinition) => {
-    addNodeModel(def);
+  const handleAddSave = (result: NodeModalSaveResult) => {
+    if (result.newDef) {
+      addNodeModel(result.newDef);
+    }
   };
+
+  const handleEditSave = (result: NodeModalSaveResult) => {
+    if (result.updatedDef) {
+      updateNodeModel(result.updatedDef);
+    }
+    setEditingDef(null);
+  };
+
+  // Get modal data for create mode
+  const addModalData: NodeModalData = { mode: 'create', defaultCategory: 'Action' };
 
   return (
     <div className="panel node-palette">
@@ -60,6 +73,7 @@ const NodePalette: React.FC = () => {
                     def={node}
                     colors={colors}
                     onDragStart={onDragStart}
+                    onEdit={!node.builtin ? () => setEditingDef(node) : undefined}
                     onDelete={!node.builtin ? deleteNodeModel : undefined}
                   />
                 ))}
@@ -87,9 +101,19 @@ const NodePalette: React.FC = () => {
 
       {/* Add Node Modal */}
       {showAddModal && (
-        <AddNodeModal
-          onSave={handleAddNode}
+        <NodeModal
+          data={addModalData}
+          onSave={handleAddSave}
           onClose={() => setShowAddModal(false)}
+        />
+      )}
+
+      {/* Edit Node Definition Modal */}
+      {editingDef && (
+        <NodeModal
+          data={{ mode: 'edit-definition', nodeDef: editingDef }}
+          onSave={handleEditSave}
+          onClose={() => setEditingDef(null)}
         />
       )}
     </div>
@@ -100,36 +124,44 @@ interface PaletteItemProps {
   def: BTNodeDefinition;
   colors: { bg: string; border: string; text: string };
   onDragStart: (e: React.DragEvent, type: string) => void;
+  onEdit?: (def: BTNodeDefinition) => void;
   onDelete?: (type: string) => void;
 }
 
-const PaletteItem: React.FC<PaletteItemProps> = ({ def, colors, onDragStart, onDelete }) => (
-  <div
-    draggable
-    onDragStart={(e) => onDragStart(e, def.type)}
-    className="palette-item"
-    style={{ background: colors.bg, borderColor: colors.border, color: colors.text }}
-    title={def.description || def.type}
-  >
-    <span style={{ flex: 1, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-      {def.type}
-    </span>
-    {onDelete && (
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete(def.type); }}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: '#e04040',
-          cursor: 'pointer',
-          padding: '0 2px',
-          fontSize: 12,
-          lineHeight: 1,
-        }}
-        title="Delete custom node"
-      >
-        ✕
-      </button>
+const PaletteItem: React.FC<PaletteItemProps> = ({ def, colors, onDragStart, onEdit, onDelete }) => (
+  <div className="palette-item-wrapper">
+    <div
+      draggable
+      onDragStart={(e) => onDragStart(e, def.type)}
+      className="palette-item"
+      style={{ background: colors.bg, borderColor: colors.border, color: colors.text }}
+      title={def.description || def.type}
+    >
+      <span style={{ flex: 1, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {def.type}
+      </span>
+    </div>
+    {(onEdit || onDelete) && (
+      <div className="palette-item-actions">
+        {onEdit && (
+          <button
+            onClick={() => onEdit(def)}
+            className="palette-item-btn"
+            title="Edit node"
+          >
+            ✎
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(def.type); }}
+            className="palette-item-btn danger"
+            title="Delete node"
+          >
+            ✕
+          </button>
+        )}
+      </div>
     )}
   </div>
 );

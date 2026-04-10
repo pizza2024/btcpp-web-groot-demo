@@ -25,7 +25,7 @@ import BTFlowEdge from './edges/BTFlowEdge';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeDefinition, BTProject } from '../types/bt';
 import { useContextMenu, type MenuConfig } from './ContextMenu';
-import NodeEditModal from './NodeEditModal';
+import NodeModal, { type NodeModalData, type NodeModalSaveResult } from './NodeModal';
 
 const nodeTypes = { btNode: BTFlowNode };
 const edgeTypes = { btEdge: BTFlowEdge };
@@ -235,9 +235,9 @@ const BTCanvas: React.FC = () => {
     return () => window.removeEventListener('bt-node-edit', handleNodeEdit);
   }, []);
 
-  // Handle edit modal save
-  const handleEditSave = useCallback((data: { name?: string; ports: Record<string, string> }) => {
-    if (!editingNodeId) return;
+  // Handle edit modal save (for editing node instances on canvas)
+  const handleEditSave = useCallback((result: NodeModalSaveResult) => {
+    if (!editingNodeId || result.nodeId !== editingNodeId) return;
 
     // Update local nodes state for immediate UI feedback
     setNodes((prev) => {
@@ -255,8 +255,8 @@ const BTCanvas: React.FC = () => {
             ...n,
             data: {
               ...n.data,
-              label: data.name !== undefined ? data.name : nodeData.label,
-              ports: data.ports,
+              label: result.name !== undefined ? result.name : nodeData.label,
+              ports: result.ports ?? nodeData.ports,
             },
           };
         }
@@ -265,12 +265,12 @@ const BTCanvas: React.FC = () => {
     });
 
     // Update store for persistence
-    if (data.name !== undefined) {
-      updateNodeName(editingNodeId, data.name);
+    if (result.name !== undefined) {
+      updateNodeName(editingNodeId, result.name);
     }
-    if (data.ports !== undefined) {
+    if (result.ports !== undefined) {
       const { updateNodePorts } = useBTStore.getState();
-      updateNodePorts(editingNodeId, data.ports);
+      updateNodePorts(editingNodeId, result.ports);
     }
   }, [editingNodeId, setNodes, updateNodeName]);
 
@@ -431,14 +431,18 @@ const BTCanvas: React.FC = () => {
         const node = nodes.find((n) => n.id === editingNodeId);
         if (!node) return null;
         const data = node.data as { nodeType: string; category: string; label: string; ports?: Record<string, string> };
+        const modalData: NodeModalData = {
+          mode: 'edit-instance',
+          nodeId: node.id,
+          nodeType: data.nodeType,
+          nodeCategory: data.category,
+          nodeName: data.label !== data.nodeType ? data.label : undefined,
+          ports: data.ports ?? {},
+          availableTrees: project.trees.map((t) => t.id),
+        };
         return (
-          <NodeEditModal
-            nodeId={node.id}
-            nodeType={data.nodeType}
-            nodeCategory={data.category}
-            nodeName={data.label !== data.nodeType ? data.label : undefined}
-            ports={data.ports ?? {}}
-            availableTrees={project.trees.map((t) => t.id)}
+          <NodeModal
+            data={modalData}
             onSave={handleEditSave}
             onClose={() => setEditingNodeId(null)}
           />

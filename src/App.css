@@ -463,6 +463,61 @@
   max-width: 95vw;
 }
 
+.node-modal {
+  width: 520px;
+  max-width: 95vw;
+}
+
+.input-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.palette-item-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.palette-item-wrapper .palette-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.palette-item-actions {
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.palette-item-wrapper:hover .palette-item-actions {
+  opacity: 1;
+}
+
+.palette-item-btn {
+  background: none;
+  border: 1px solid #334;
+  color: #667;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 0.1s;
+}
+
+.palette-item-btn:hover {
+  background: #1e2840;
+  color: #c8e0ff;
+  border-color: #4a80d0;
+}
+
+.palette-item-btn.danger:hover {
+  background: #2a1a1a;
+  color: #ff6060;
+  border-color: #e04040;
+}
+
 .form-row {
   display: flex;
   gap: 12px;
