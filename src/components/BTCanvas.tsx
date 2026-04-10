@@ -58,6 +58,11 @@ const BTCanvas: React.FC = () => {
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = React.useState<string | null>(null);
 
+  // Track if we should force layout
+  const forceLayoutRef = useRef(true); // Start true for initial load
+  const prevTreeIdRef = useRef<string | null>(null);
+  const prevProjectRef = useRef<typeof project | null>(null);
+
   const initial = useMemo(
     () => buildFlowNodes(activeTreeId, project, debugState.nodeStatuses),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,10 +79,45 @@ const BTCanvas: React.FC = () => {
 
   // Sync when project / active tree / debug changes
   React.useEffect(() => {
-    const { nodes: n, edges: e } = buildFlowNodes(activeTreeId, project, debugState.nodeStatuses);
-    setNodes(n);
-    setEdges(withSelectedEdge(e, selectedEdgeId, deleteEdge));
-  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, setNodes, setEdges]);
+    // Detect if this is a tree switch (force layout) or just a save (preserve positions)
+    const prevTreeId = prevTreeIdRef.current;
+    const prevProject = prevProjectRef.current;
+
+    const shouldForceLayout =
+      forceLayoutRef.current ||
+      prevTreeId !== activeTreeId ||
+      // Project reference changed (e.g., new XML loaded)
+      (prevProject !== null && prevProject !== project);
+
+    prevTreeIdRef.current = activeTreeId;
+    prevProjectRef.current = project;
+    forceLayoutRef.current = false;
+
+    if (shouldForceLayout) {
+      // Full rebuild with autoLayout for tree switch or initial load
+      const { nodes: n, edges: e } = buildFlowNodes(activeTreeId, project, debugState.nodeStatuses);
+      setNodes(n);
+      setEdges(withSelectedEdge(e, selectedEdgeId, deleteEdge));
+    } else {
+      // Incremental update: only sync structure from project, preserve existing positions
+      const tree = project.trees.find((t) => t.id === activeTreeId);
+      if (!tree) return;
+      const { nodes: newNodes } = treeToFlow(tree, project.nodeModels);
+
+      // Merge: keep existing positions from local nodes state
+      setNodes((prevNodes) => {
+        const existingPositions = new Map(prevNodes.map((n) => [n.id, n.position]));
+        const merged = newNodes.map((n) => ({
+          ...n,
+          position: existingPositions.get(n.id) ?? n.position,
+          selected: n.id === selectedNodeId,
+          data: { ...n.data, status: debugState.nodeStatuses.get(n.id) ?? 'IDLE' },
+        }));
+        return merged;
+      });
+      setEdges((prevEdges) => withSelectedEdge(prevEdges, selectedEdgeId, deleteEdge));
+    }
+  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge]);
 
   // Highlight selected node
   React.useEffect(() => {
