@@ -197,17 +197,19 @@ const BTCanvas: React.FC = () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => {
       try {
-        const tree = flowToTree(activeTreeId, nodes, edges);
-        const { project: p } = useBTStore.getState();
-        const currentTree = p.trees.find((t) => t.id === activeTreeId);
+        // Always read fresh localNodes/localEdges from store at execution time,
+        // so edits via PropertiesPanel (which update localNodes directly) are saved correctly.
+        const { localNodes: freshNodes, localEdges: freshEdges, project: p, activeTreeId: treeId } = useBTStore.getState();
+        const tree = flowToTree(treeId, freshNodes, freshEdges);
+        const currentTree = p.trees.find((t) => t.id === treeId);
         if (currentTree && isSameTreeStructure(currentTree, tree)) return;
-        const trees = p.trees.map((t) => (t.id === activeTreeId ? tree : t));
+        const trees = p.trees.map((t) => (t.id === treeId ? tree : t));
         useBTStore.setState({ project: { ...p, trees } });
       } catch {
         // ignore intermediate invalid states
       }
     }, 500);
-  }, [activeTreeId, nodes, edges]);
+  }, [activeTreeId]);
 
   React.useEffect(() => {
     saveToStore();

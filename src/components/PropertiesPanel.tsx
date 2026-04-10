@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useBTStore } from '../store/btStore';
 import type { BTNodeDefinition } from '../types/bt';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
+import type { Node } from '@xyflow/react';
 
 const PropertiesPanel: React.FC = () => {
-  const { project, activeTreeId, selectedNodeId, updateNodePorts, updateNodeName, localNodes } = useBTStore();
+  const { project, activeTreeId, selectedNodeId, updateNodePorts, updateNodeName, localNodes, setLocalCanvas } = useBTStore();
 
   // Find the selected BT node in the active tree
   const tree = project.trees.find((t) => t.id === activeTreeId);
@@ -69,19 +70,40 @@ const PropertiesPanel: React.FC = () => {
   const handleSavePorts = useCallback(() => {
     if (!btNode) return;
     updateNodePorts(btNode.id, localPorts);
-  }, [btNode, localPorts, updateNodePorts]);
+    // Also update localNodes so the debounced saveToStore uses the new data
+    const { localEdges } = useBTStore.getState();
+    const updated = localNodes.map((n: Node) => {
+      if (n.id !== btNode.id) return n;
+      return { ...n, data: { ...n.data, ports: { ...btNode.ports, ...localPorts } } };
+    });
+    setLocalCanvas(updated, localEdges);
+  }, [btNode, localPorts, updateNodePorts, localNodes, setLocalCanvas]);
 
   // Save handler for name
   const handleSaveName = useCallback(() => {
-    if (!btNode || !builtinDef) return;
+    if (!btNode) return;
     updateNodeName(btNode.id, localName);
-  }, [btNode, localName, updateNodeName, builtinDef]);
+    // Also update localNodes so the debounced saveToStore uses the new data
+    const { localEdges } = useBTStore.getState();
+    const updated = localNodes.map((n: Node) => {
+      if (n.id !== btNode.id) return n;
+      return { ...n, data: { ...n.data, label: localName } };
+    });
+    setLocalCanvas(updated, localEdges);
+  }, [btNode, localName, updateNodeName, localNodes, setLocalCanvas]);
 
   // Save handler for SubTree target
   const handleSaveSubTree = useCallback(() => {
     if (!btNode) return;
     updateNodeName(btNode.id, localSubTreeId);
-  }, [btNode, localSubTreeId, updateNodeName]);
+    // Also update localNodes so the debounced saveToStore uses the new data
+    const { localEdges } = useBTStore.getState();
+    const updated = localNodes.map((n: Node) => {
+      if (n.id !== btNode.id) return n;
+      return { ...n, data: { ...n.data, label: localSubTreeId } };
+    });
+    setLocalCanvas(updated, localEdges);
+  }, [btNode, localSubTreeId, updateNodeName, localNodes, setLocalCanvas]);
 
   const updatePort = (name: string, value: string) => {
     setLocalPorts((prev) => ({ ...prev, [name]: value }));

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { BTProject, BTNodeDefinition, NodeStatus } from '../types/bt';
 import type { Node, Edge } from '@xyflow/react';
 import { defaultProject, parseXML, serializeXML } from '../utils/btXml';
@@ -68,7 +69,9 @@ const defaultDebug: DebugState = {
   entries: [],
 };
 
-export const useBTStore = create<BTStore>((set, get) => ({
+export const useBTStore = create<BTStore>()(
+  persist(
+    (set, get) => ({
   project: defaultProject(),
   activeTreeId: 'MainTree',
   selectedNodeId: null,
@@ -256,7 +259,16 @@ export const useBTStore = create<BTStore>((set, get) => ({
   debugReset() {
     set({ debugState: defaultDebug });
   },
-}));
+}),
+    {
+      name: 'bt-tree-editor', // localStorage key
+      partialize: (state) => ({
+        project: state.project,
+        activeTreeId: state.activeTreeId,
+      }),
+    }
+  )
+);
 
 function findNodeId(node: import('../types/bt').BTTreeNode, type: string, name: string): string | null {
   const nodeName = node.name ?? node.type;
