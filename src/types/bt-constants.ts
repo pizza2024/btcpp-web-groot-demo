@@ -252,6 +252,39 @@ export const BUILTIN_NODES: BTNodeDefinition[] = [
     ],
   },
   {
+    type: 'LoopBool',
+    category: 'Decorator',
+    builtin: true,
+    description: 'Loop over boolean queue',
+    ports: [
+      { name: 'queue', direction: 'inout', description: 'Queue of booleans' },
+      { name: 'if_empty', direction: 'input', description: 'Status when queue empty', defaultValue: 'SUCCESS' },
+      { name: 'value', direction: 'output', description: 'Current item from queue' },
+    ],
+  },
+  {
+    type: 'LoopDouble',
+    category: 'Decorator',
+    builtin: true,
+    description: 'Loop over double/float queue',
+    ports: [
+      { name: 'queue', direction: 'inout', description: 'Queue of doubles' },
+      { name: 'if_empty', direction: 'input', description: 'Status when queue empty', defaultValue: 'SUCCESS' },
+      { name: 'value', direction: 'output', description: 'Current item from queue' },
+    ],
+  },
+  {
+    type: 'LoopString',
+    category: 'Decorator',
+    builtin: true,
+    description: 'Loop over string queue',
+    ports: [
+      { name: 'queue', direction: 'inout', description: 'Queue of strings' },
+      { name: 'if_empty', direction: 'input', description: 'Status when queue empty', defaultValue: 'SUCCESS' },
+      { name: 'value', direction: 'output', description: 'Current item from queue' },
+    ],
+  },
+  {
     type: 'SkipUnlessUpdated',
     category: 'Decorator',
     builtin: true,
