@@ -67,43 +67,50 @@ const PropertiesPanel: React.FC = () => {
   const isSubTree = btNode?.type === 'SubTree';
 
   // Save handler for port values
+  // Directly update store tree AND sync localNodes so the debounced saveToStore
+  // sees consistent data and the isSameTreeStructure check passes (skipping overwrite).
   const handleSavePorts = useCallback(() => {
     if (!btNode) return;
-    updateNodePorts(btNode.id, localPorts);
-    // Also update localNodes so the debounced saveToStore uses the new data
     const { localEdges } = useBTStore.getState();
+    // Build updated flow nodes with new ports merged
+    const mergedPorts = { ...btNode.ports, ...localPorts };
     const updated = localNodes.map((n: Node) => {
       if (n.id !== btNode.id) return n;
-      return { ...n, data: { ...n.data, ports: { ...btNode.ports, ...localPorts } } };
+      return { ...n, data: { ...n.data, ports: mergedPorts } };
     });
+    // Update store tree (project) immediately - not debounced
+    updateNodePorts(btNode.id, localPorts);
+    // Sync localNodes so debounced saveToStore reads consistent data
     setLocalCanvas(updated, localEdges);
-  }, [btNode, localPorts, updateNodePorts, localNodes, setLocalCanvas]);
+  }, [btNode, localPorts, localNodes, updateNodePorts, setLocalCanvas]);
 
   // Save handler for name
   const handleSaveName = useCallback(() => {
     if (!btNode) return;
-    updateNodeName(btNode.id, localName);
-    // Also update localNodes so the debounced saveToStore uses the new data
     const { localEdges } = useBTStore.getState();
     const updated = localNodes.map((n: Node) => {
       if (n.id !== btNode.id) return n;
       return { ...n, data: { ...n.data, label: localName } };
     });
+    // Update store tree (project) immediately - not debounced
+    updateNodeName(btNode.id, localName);
+    // Sync localNodes so debounced saveToStore reads consistent data
     setLocalCanvas(updated, localEdges);
-  }, [btNode, localName, updateNodeName, localNodes, setLocalCanvas]);
+  }, [btNode, localName, localNodes, updateNodeName, setLocalCanvas]);
 
   // Save handler for SubTree target
   const handleSaveSubTree = useCallback(() => {
     if (!btNode) return;
-    updateNodeName(btNode.id, localSubTreeId);
-    // Also update localNodes so the debounced saveToStore uses the new data
     const { localEdges } = useBTStore.getState();
     const updated = localNodes.map((n: Node) => {
       if (n.id !== btNode.id) return n;
       return { ...n, data: { ...n.data, label: localSubTreeId } };
     });
+    // Update store tree (project) immediately - not debounced
+    updateNodeName(btNode.id, localSubTreeId);
+    // Sync localNodes so debounced saveToStore reads consistent data
     setLocalCanvas(updated, localEdges);
-  }, [btNode, localSubTreeId, updateNodeName, localNodes, setLocalCanvas]);
+  }, [btNode, localSubTreeId, localNodes, updateNodeName, setLocalCanvas]);
 
   const updatePort = (name: string, value: string) => {
     setLocalPorts((prev) => ({ ...prev, [name]: value }));
