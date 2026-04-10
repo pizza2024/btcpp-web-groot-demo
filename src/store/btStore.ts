@@ -262,6 +262,7 @@ export const useBTStore = create<BTStore>()(
 }),
     {
       name: 'bt-tree-editor', // localStorage key
+      version: 2, // bump when node model schema changes
       partialize: (state) => ({
         project: state.project,
         activeTreeId: state.activeTreeId,
