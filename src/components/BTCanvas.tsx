@@ -25,6 +25,7 @@ import BTFlowEdge from './edges/BTFlowEdge';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeDefinition, BTProject } from '../types/bt';
 import { useContextMenu, type MenuConfig } from './ContextMenu';
+import NodeEditModal from './NodeEditModal';
 
 const nodeTypes = { btNode: BTFlowNode };
 const edgeTypes = { btEdge: BTFlowEdge };
@@ -63,6 +64,9 @@ const BTCanvas: React.FC = () => {
 
   // Context menu
   const { menuState, showMenu, hideMenu, ContextMenuComponent } = useContextMenu();
+
+  // Node edit modal
+  const [editingNodeId, setEditingNodeId] = React.useState<string | null>(null);
 
   // Track if we should force layout (tree switch or initial load)
   const forceLayoutRef = useRef(true);
@@ -220,30 +224,55 @@ const BTCanvas: React.FC = () => {
     setLocalCanvas(nodes, edges);
   }, [nodes, edges, setLocalCanvas]);
 
-  // Handle node label changes from inline editing
+  // Handle node edit modal trigger
   React.useEffect(() => {
-    const handleLabelChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ nodeId: string; newLabel: string }>;
-      const { nodeId, newLabel } = customEvent.detail;
-      // Update local nodes state for immediate UI feedback
-      setNodes((prev) =>
-        prev.map((n) => {
-          if (n.id === nodeId) {
-            return {
-              ...n,
-              data: { ...n.data, label: newLabel },
-            };
-          }
-          return n;
-        })
-      );
-      // Also update the store so it persists
-      updateNodeName(nodeId, newLabel);
+    const handleNodeEdit = (e: Event) => {
+      const customEvent = e as CustomEvent<{ nodeId: string }>;
+      setEditingNodeId(customEvent.detail.nodeId);
     };
 
-    window.addEventListener('bt-node-label-change', handleLabelChange);
-    return () => window.removeEventListener('bt-node-label-change', handleLabelChange);
-  }, [setNodes, updateNodeName]);
+    window.addEventListener('bt-node-edit', handleNodeEdit);
+    return () => window.removeEventListener('bt-node-edit', handleNodeEdit);
+  }, []);
+
+  // Handle edit modal save
+  const handleEditSave = useCallback((data: { name?: string; ports: Record<string, string> }) => {
+    if (!editingNodeId) return;
+
+    // Update local nodes state for immediate UI feedback
+    setNodes((prev) => {
+      const node = prev.find((n) => n.id === editingNodeId);
+      const nodeData = node?.data as {
+        nodeType: string;
+        label: string;
+        ports?: Record<string, string>;
+      };
+      if (!node || !nodeData) return prev;
+
+      return prev.map((n) => {
+        if (n.id === editingNodeId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              label: data.name !== undefined ? data.name : nodeData.label,
+              ports: data.ports,
+            },
+          };
+        }
+        return n;
+      });
+    });
+
+    // Update store for persistence
+    if (data.name !== undefined) {
+      updateNodeName(editingNodeId, data.name);
+    }
+    if (data.ports !== undefined) {
+      const { updateNodePorts } = useBTStore.getState();
+      updateNodePorts(editingNodeId, data.ports);
+    }
+  }, [editingNodeId, setNodes, updateNodeName]);
 
   React.useEffect(() => {
     setEdges((prev) => withSelectedEdge(prev, selectedEdgeId, deleteEdge));
@@ -396,6 +425,25 @@ const BTCanvas: React.FC = () => {
           onClose={hideMenu}
         />
       )}
+
+      {/* Node Edit Modal */}
+      {editingNodeId && (() => {
+        const node = nodes.find((n) => n.id === editingNodeId);
+        if (!node) return null;
+        const data = node.data as { nodeType: string; category: string; label: string; ports?: Record<string, string> };
+        return (
+          <NodeEditModal
+            nodeId={node.id}
+            nodeType={data.nodeType}
+            nodeCategory={data.category}
+            nodeName={data.label !== data.nodeType ? data.label : undefined}
+            ports={data.ports ?? {}}
+            availableTrees={project.trees.map((t) => t.id)}
+            onSave={handleEditSave}
+            onClose={() => setEditingNodeId(null)}
+          />
+        );
+      })()}
     </div>
   );
 };

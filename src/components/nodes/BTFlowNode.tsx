@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { STATUS_COLORS } from '../../types/bt-constants';
@@ -29,44 +29,12 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
   // Port values display
   const portEntries = ports ? Object.entries(ports).filter(([, v]) => v !== '') : [];
 
-  // Inline editing state
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(label);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Start editing on double click (only for non-leaf nodes)
+  // Double click opens edit modal
   const handleDoubleClick = (e: React.MouseEvent) => {
-    if (isLeaf) return; // Leaf nodes: type is not editable
     e.stopPropagation();
-    setIsEditing(true);
-    setEditValue(label);
-  };
-
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  const handleBlur = () => {
-    setIsEditing(false);
-    // Notify parent via custom event
-    if (editValue !== label) {
-      window.dispatchEvent(new CustomEvent('bt-node-label-change', {
-        detail: { nodeId, newLabel: editValue }
-      }));
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      (e.target as HTMLInputElement).blur();
-    } else if (e.key === 'Escape') {
-      setEditValue(label);
-      setIsEditing(false);
-    }
-    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('bt-node-edit', {
+      detail: { nodeId }
+    }));
   };
 
   // Calculate handle positions for multi-children nodes
@@ -133,6 +101,7 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
         transition: 'border-color 0.2s, box-shadow 0.2s',
         userSelect: 'none',
         position: 'relative',
+        cursor: 'pointer',
       }}
     >
       {handles}
@@ -142,34 +111,10 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
         {isLeaf ? 'Action' : category}
       </div>
 
-      {/* Label (editable for non-leaf) */}
-      {isEditing ? (
-        <input
-          ref={inputRef}
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          style={{
-            background: '#1a1a2e',
-            border: '1px solid #4a80d0',
-            color: colors.text,
-            borderRadius: 3,
-            padding: '2px 4px',
-            fontSize: 13,
-            fontWeight: 600,
-            fontFamily: 'monospace',
-            textAlign: 'center',
-            width: '100%',
-            boxSizing: 'border-box',
-            outline: 'none',
-          }}
-        />
-      ) : (
-        <div style={{ fontWeight: 600, fontSize: 13, wordBreak: 'break-word' }}>
-          {label}
-        </div>
-      )}
+      {/* Label */}
+      <div style={{ fontWeight: 600, fontSize: 13, wordBreak: 'break-word' }}>
+        {label}
+      </div>
 
       {/* Ports summary */}
       {portEntries.length > 0 && (
