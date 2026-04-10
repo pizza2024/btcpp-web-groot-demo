@@ -128,7 +128,7 @@ const NodeModelModal: React.FC<Props> = (props) => {
 
   const colors = CATEGORY_COLORS[category];
 
-  const getTitle = () => isCreate ? 'Create Custom Node' : `Edit Node: ${nodeType}`;
+  const getTitle = () => isCreate ? 'Create Model' : `Edit Model: ${nodeType}`;
 
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>

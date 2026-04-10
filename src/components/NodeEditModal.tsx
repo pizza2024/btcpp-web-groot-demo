@@ -145,7 +145,7 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
         <div className="modal-header">
           <div className="modal-title">
             <span className="modal-node-type">{nodeType}</span>
-            <span className="modal-node-id">#{nodeId.slice(0, 8)}</span>
+            <span className="modal-instance-id">Instance #{nodeId.slice(0, 8)}</span>
           </div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>

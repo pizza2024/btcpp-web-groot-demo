@@ -47,7 +47,7 @@ const NodePalette: React.FC = () => {
 
   return (
     <div className="panel node-palette">
-      <div className="panel-header">Node Palette</div>
+      <div className="panel-header">Models Palette</div>
 
       {CATEGORIES.map((cat) => {
         const nodes = byCategory(cat);
@@ -95,7 +95,7 @@ const NodePalette: React.FC = () => {
           onClick={() => setModelModal({ mode: 'create', defaultCategory: 'Action' })}
           style={{ width: '100%' }}
         >
-          + Add Custom Node
+          + Add Model
         </button>
       </div>
 
@@ -148,7 +148,7 @@ const PaletteItem: React.FC<PaletteItemProps> = ({ def, colors, onDragStart, onE
           <button
             onClick={() => onEdit(def)}
             className="palette-item-btn"
-            title="Edit node model"
+            title="Edit model"
           >
             ✎
           </button>
@@ -157,7 +157,7 @@ const PaletteItem: React.FC<PaletteItemProps> = ({ def, colors, onDragStart, onE
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(def.type); }}
             className="palette-item-btn danger"
-            title="Delete node model"
+            title="Delete model"
           >
             ✕
           </button>
