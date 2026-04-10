@@ -85,11 +85,33 @@ export function parseXML(xmlText: string): BTProject {
     });
   }
 
+  // Discover all unique node types used in the tree
+  const discoveredTypes = new Set<string>();
+  const collectTypes = (node: BTTreeNode) => {
+    discoveredTypes.add(node.type);
+    node.children.forEach(collectTypes);
+  };
+  trees.forEach((t) => collectTypes(t.root));
+
+  // Add missing leaf nodes (not in TreeNodesModel, not builtins)
+  // Any unknown type is treated as a custom Action/Condition (Leaf)
+  const existingTypes = new Set([
+    ...BUILTIN_NODES.map((n) => n.type),
+    ...nodeModels.map((m) => m.type),
+  ]);
+  const missingLeafModels: BTNodeDefinition[] = [];
+  discoveredTypes.forEach((type) => {
+    if (!existingTypes.has(type)) {
+      missingLeafModels.push({ type, category: 'Leaf' });
+    }
+  });
+
   // Merge with builtins (builtin wins)
   const builtinTypes = new Set(BUILTIN_NODES.map((n) => n.type));
   const mergedModels: BTNodeDefinition[] = [
     ...BUILTIN_NODES,
     ...nodeModels.filter((m) => !builtinTypes.has(m.type)),
+    ...missingLeafModels,
   ];
 
   const mainTreeId =
