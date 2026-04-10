@@ -3,13 +3,13 @@ import { useBTStore } from '../store/btStore';
 import { CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeCategory, BTNodeDefinition } from '../types/bt';
 
-const CATEGORIES: BTNodeCategory[] = ['Control', 'Decorator', 'Leaf', 'SubTree'];
+const CATEGORIES: BTNodeCategory[] = ['Control', 'Decorator', 'Action', 'Condition', 'SubTree'];
 
 const NodePalette: React.FC = () => {
   const { project, addNodeModel, deleteNodeModel } = useBTStore();
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(CATEGORIES));
   const [newNodeName, setNewNodeName] = useState('');
-  const [newNodeCat, setNewNodeCat] = useState<BTNodeCategory>('Leaf');
+  const [newNodeCat, setNewNodeCat] = useState<BTNodeCategory>('Action');
 
   const toggleCat = (cat: string) => {
     setExpandedCats((prev) => {
@@ -113,9 +113,11 @@ const NodePalette: React.FC = () => {
             marginBottom: 4,
           }}
         >
-          <option value="Leaf">Action / Condition</option>
+          <option value="Action">Action</option>
+          <option value="Condition">Condition</option>
           <option value="Control">Control</option>
           <option value="Decorator">Decorator</option>
+          <option value="SubTree">SubTree</option>
         </select>
         <button className="btn-primary" onClick={handleAddNode} style={{ width: '100%' }}>
           + Add Node

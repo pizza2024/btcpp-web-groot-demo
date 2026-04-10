@@ -69,10 +69,10 @@ export function parseXML(xmlText: string): BTProject {
   const modelEl = root.querySelector(':scope > TreeNodesModel');
   if (modelEl) {
     Array.from(modelEl.children).forEach((catEl) => {
-      // XML uses Action/Condition tags; normalize to 'Leaf' for palette
+      // XML uses Action/Condition tags directly as category
       const xmlCat = catEl.tagName;
       const category: BTNodeDefinition['category'] =
-        xmlCat === 'Action' || xmlCat === 'Condition' ? 'Leaf' : (xmlCat as BTNodeDefinition['category']);
+        xmlCat as BTNodeDefinition['category'];
       const type = catEl.getAttribute('ID') || catEl.tagName;
       const ports = Array.from(catEl.querySelectorAll('input_port, output_port, inout_port')).map(
         (p) => ({
@@ -94,7 +94,7 @@ export function parseXML(xmlText: string): BTProject {
   trees.forEach((t) => collectTypes(t.root));
 
   // Add missing leaf nodes (not in TreeNodesModel, not builtins)
-  // Any unknown type is treated as a custom Action/Condition (Leaf)
+  // Any unknown type is treated as a custom Action node
   const existingTypes = new Set([
     ...BUILTIN_NODES.map((n) => n.type),
     ...nodeModels.map((m) => m.type),
@@ -102,7 +102,7 @@ export function parseXML(xmlText: string): BTProject {
   const missingLeafModels: BTNodeDefinition[] = [];
   discoveredTypes.forEach((type) => {
     if (!existingTypes.has(type)) {
-      missingLeafModels.push({ type, category: 'Leaf' });
+      missingLeafModels.push({ type, category: 'Action' });
     }
   });
 
@@ -131,15 +131,15 @@ function serializeNode(
   const pad = '  '.repeat(indent);
   const attrs: string[] = [];
 
-  // Determine if this is a leaf (custom action/condition) or SubTree
+  // Determine node category
   const builtinNode = BUILTIN_NODES.find((n) => n.type === node.type);
   const modelNode = nodeModels.find((n) => n.type === node.type);
-  const category = builtinNode?.category ?? modelNode?.category ?? 'Leaf';
+  const category = builtinNode?.category ?? modelNode?.category ?? 'Action';
 
   let tagName: string;
-  if (category === 'Leaf') {
-    // Wrap in <Action ID="TypeName"> (BT.CPP uses Action/Condition as XML tags)
-    tagName = 'Action';
+  if (category === 'Action' || category === 'Condition') {
+    // Wrap in <Action ID="TypeName"> or <Condition ID="TypeName">
+    tagName = category;
     attrs.push(`ID="${escapeXml(node.type)}"`);
   } else if (category === 'SubTree') {
     tagName = 'SubTree';
@@ -183,7 +183,8 @@ export function serializeXML(project: BTProject): string {
   if (customModels.length > 0) {
     lines.push('  <TreeNodesModel>');
     customModels.forEach((m) => {
-      const cat = m.category === 'Leaf' ? 'Action' : m.category;
+      // Use category directly; 'Action'/'Condition' are valid XML tags
+      const cat = m.category;
       if (!m.ports || m.ports.length === 0) {
         lines.push(`    <${cat} ID="${escapeXml(m.type)}"/>`);
       } else {

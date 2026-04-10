@@ -31,7 +31,7 @@ describe('serializeXML', () => {
       ports: { message: 'hello <world> & "team"' },
       children: [],
     });
-    project.nodeModels.push({ type: 'Say', category: 'Leaf', ports: [] });
+    project.nodeModels.push({ type: 'Say', category: 'Action', ports: [] });
 
     const xml = serializeXML(project);
 

@@ -1,10 +1,13 @@
-export type BTNodeCategory = 'Control' | 'Decorator' | 'Leaf' | 'SubTree';
+export type BTNodeCategory = 'Control' | 'Decorator' | 'Action' | 'Condition' | 'SubTree';
 export type NodeStatus = 'IDLE' | 'RUNNING' | 'SUCCESS' | 'FAILURE';
+
+export type PortDirection = 'input' | 'output' | 'inout';
 
 export interface BTPort {
   name: string;
-  direction: 'input' | 'output' | 'inout';
+  direction: PortDirection;
   description?: string;
+  defaultValue?: string;
 }
 
 export interface BTNodeDefinition {

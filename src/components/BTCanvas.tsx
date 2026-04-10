@@ -320,8 +320,8 @@ const BTCanvas: React.FC = () => {
 
       const def: BTNodeDefinition | undefined = project.nodeModels.find((m) => m.type === nodeType)
         ?? BUILTIN_NODES.find((m) => m.type === nodeType);
-      const category = def?.category ?? 'Leaf';
-      const colors = CATEGORY_COLORS[category] ?? CATEGORY_COLORS['Leaf'];
+      const category = def?.category ?? 'Action';
+      const colors = CATEGORY_COLORS[category] ?? CATEGORY_COLORS['Action'];
 
       const newNode: Node = {
         id: `n_${Math.random().toString(36).slice(2, 9)}`,

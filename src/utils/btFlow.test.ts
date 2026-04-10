@@ -23,7 +23,7 @@ describe('treeToFlow', () => {
       },
     };
 
-    const { nodes, edges } = treeToFlow(tree, [{ type: 'CustomAction', category: 'Leaf' }]);
+    const { nodes, edges } = treeToFlow(tree, [{ type: 'CustomAction', category: 'Action' }]);
 
     expect(nodes).toHaveLength(2);
     expect(edges).toHaveLength(1);
@@ -40,7 +40,7 @@ describe('treeToFlow', () => {
     expect(childNode?.data).toMatchObject({
       label: 'CustomAction',
       nodeType: 'CustomAction',
-      category: 'Leaf',
+      category: 'Action',
       childIndex: 0,
     });
 

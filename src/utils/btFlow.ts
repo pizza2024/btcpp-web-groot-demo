@@ -33,8 +33,8 @@ export function treeToFlow(
   function walk(btNode: BTTreeNode, parentId?: string, childIndex?: number) {
     const builtinDef = BUILTIN_NODES.find((n) => n.type === btNode.type);
     const customDef = nodeModels.find((n) => n.type === btNode.type);
-    const category = builtinDef?.category ?? customDef?.category ?? 'Leaf';
-    const colors = CATEGORY_COLORS[category] ?? CATEGORY_COLORS['Leaf'];
+    const category = builtinDef?.category ?? customDef?.category ?? 'Action';
+    const colors = CATEGORY_COLORS[category] ?? CATEGORY_COLORS['Action'];
     const childrenCount = countChildren(btNode);
 
     nodes.push({
