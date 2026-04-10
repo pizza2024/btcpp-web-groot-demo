@@ -458,13 +458,13 @@
 }
 
 /* ─── Add Node Modal ───────────────────────────────────────────── */
-.add-node-modal {
-  width: 480px;
+.node-model-modal {
+  width: 520px;
   max-width: 95vw;
 }
 
-.node-modal {
-  width: 520px;
+.node-edit-modal {
+  width: 440px;
   max-width: 95vw;
 }
 

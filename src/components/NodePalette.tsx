@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { useBTStore } from '../store/btStore';
 import { CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeCategory, BTNodeDefinition } from '../types/bt';
-import NodeModal, { type NodeModalData, type NodeModalSaveResult } from './NodeModal';
+import NodeModelModal from './NodeModelModal';
 
 const CATEGORIES: BTNodeCategory[] = ['Control', 'Decorator', 'Action', 'Condition', 'SubTree'];
 
 const NodePalette: React.FC = () => {
   const { project, addNodeModel, updateNodeModel, deleteNodeModel } = useBTStore();
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(CATEGORIES));
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingDef, setEditingDef] = useState<BTNodeDefinition | null>(null);
+
+  // Model modal state: null = closed, 'create' = create new, BTNodeDefinition = edit existing
+  const [modelModal, setModelModal] = useState<{ mode: 'create'; defaultCategory: BTNodeCategory } | { mode: 'edit'; def: BTNodeDefinition } | null>(null);
 
   const toggleCat = (cat: string) => {
     setExpandedCats((prev) => {
@@ -29,21 +30,20 @@ const NodePalette: React.FC = () => {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleAddSave = (result: NodeModalSaveResult) => {
-    if (result.newDef) {
-      addNodeModel(result.newDef);
-    }
+  const handleCreate = (def: BTNodeDefinition) => {
+    addNodeModel(def);
   };
 
-  const handleEditSave = (result: NodeModalSaveResult) => {
-    if (result.updatedDef) {
-      updateNodeModel(result.updatedDef);
-    }
-    setEditingDef(null);
+  const handleUpdate = (def: BTNodeDefinition) => {
+    updateNodeModel(def);
+    setModelModal(null);
   };
 
-  // Get modal data for create mode
-  const addModalData: NodeModalData = { mode: 'create', defaultCategory: 'Action' };
+  const handleDelete = (type: string) => {
+    if (window.confirm(`Delete custom node "${type}"?`)) {
+      deleteNodeModel(type);
+    }
+  };
 
   return (
     <div className="panel node-palette">
@@ -73,7 +73,7 @@ const NodePalette: React.FC = () => {
                     def={node}
                     colors={colors}
                     onDragStart={onDragStart}
-                    onEdit={!node.builtin ? () => setEditingDef(node) : undefined}
+                    onEdit={!node.builtin ? () => setModelModal({ mode: 'edit', def: node }) : undefined}
                     onDelete={!node.builtin ? deleteNodeModel : undefined}
                   />
                 ))}
@@ -92,28 +92,29 @@ const NodePalette: React.FC = () => {
       <div style={{ marginTop: 12, borderTop: '1px solid #334', paddingTop: 8 }}>
         <button
           className="btn-primary"
-          onClick={() => setShowAddModal(true)}
+          onClick={() => setModelModal({ mode: 'create', defaultCategory: 'Action' })}
           style={{ width: '100%' }}
         >
           + Add Custom Node
         </button>
       </div>
 
-      {/* Add Node Modal */}
-      {showAddModal && (
-        <NodeModal
-          data={addModalData}
-          onSave={handleAddSave}
-          onClose={() => setShowAddModal(false)}
+      {/* Node Model Modal (Create or Edit) */}
+      {modelModal?.mode === 'create' && (
+        <NodeModelModal
+          mode="create"
+          defaultCategory={modelModal.defaultCategory}
+          onSave={handleCreate}
+          onClose={() => setModelModal(null)}
         />
       )}
-
-      {/* Edit Node Definition Modal */}
-      {editingDef && (
-        <NodeModal
-          data={{ mode: 'edit-definition', nodeDef: editingDef }}
-          onSave={handleEditSave}
-          onClose={() => setEditingDef(null)}
+      {modelModal?.mode === 'edit' && (
+        <NodeModelModal
+          mode="edit"
+          nodeDef={modelModal.def}
+          onSave={handleUpdate}
+          onDelete={handleDelete}
+          onClose={() => setModelModal(null)}
         />
       )}
     </div>
@@ -147,7 +148,7 @@ const PaletteItem: React.FC<PaletteItemProps> = ({ def, colors, onDragStart, onE
           <button
             onClick={() => onEdit(def)}
             className="palette-item-btn"
-            title="Edit node"
+            title="Edit node model"
           >
             ✎
           </button>
@@ -156,7 +157,7 @@ const PaletteItem: React.FC<PaletteItemProps> = ({ def, colors, onDragStart, onE
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(def.type); }}
             className="palette-item-btn danger"
-            title="Delete node"
+            title="Delete node model"
           >
             ✕
           </button>
