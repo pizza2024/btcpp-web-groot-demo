@@ -23,7 +23,7 @@ const NodePalette: React.FC = () => {
   };
 
   const byCategory = (cat: BTNodeCategory) =>
-    project.nodeModels.filter((m) => m.category === cat);
+    project.nodeModels.filter((m) => m.category === cat).sort((a, b) => a.type.localeCompare(b.type));
 
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/btnode-type', nodeType);
