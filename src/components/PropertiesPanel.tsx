@@ -18,23 +18,26 @@ const PropertiesPanel: React.FC = () => {
   const nodeCategory = nodeDef?.category ?? builtinDef?.category ?? 'Leaf';
   const colors = CATEGORY_COLORS[nodeCategory];
 
+  // Force re-render when node selection changes
+  const nodeKey = selectedNodeId ?? 'none';
+
   // Local state for edited port values
   const [localPorts, setLocalPorts] = useState<Record<string, string>>({});
   useEffect(() => {
     setLocalPorts(btNode?.ports ? { ...btNode.ports } : {});
-  }, [btNode]);
+  }, [nodeKey, btNode?.ports]);
 
   // Local state for node name
   const [localName, setLocalName] = useState('');
   useEffect(() => {
     setLocalName(btNode?.name ?? '');
-  }, [btNode]);
+  }, [nodeKey, btNode?.name]);
 
   // Local state for SubTree target
   const [localSubTreeId, setLocalSubTreeId] = useState('');
   useEffect(() => {
     setLocalSubTreeId(btNode?.name ?? '');
-  }, [btNode]);
+  }, [nodeKey, btNode?.name]);
 
   const allPorts = builtinDef?.ports ?? nodeDef?.ports ?? [];
   const isLeaf = nodeCategory === 'Leaf' || (btNode && !builtinDef);

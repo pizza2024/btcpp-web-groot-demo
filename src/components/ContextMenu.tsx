@@ -60,6 +60,9 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetType, menuCon
     <div
       ref={menuRef}
       className="context-menu"
+      onMouseDown={(e) => {
+        e.stopPropagation();
+      }}
       style={{
         position: 'fixed',
         left: position.x,
