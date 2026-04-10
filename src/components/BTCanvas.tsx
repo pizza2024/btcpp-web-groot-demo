@@ -23,14 +23,14 @@ import { autoLayout } from '../utils/btLayout';
 import BTFlowNode from './nodes/BTFlowNode';
 import BTFlowEdge from './edges/BTFlowEdge';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
-import type { BTNodeDefinition } from '../types/bt';
+import type { BTNodeDefinition, BTProject } from '../types/bt';
 
 const nodeTypes = { btNode: BTFlowNode };
 const edgeTypes = { btEdge: BTFlowEdge };
 
 function buildFlowNodes(
   treeId: string,
-  project: import('../types/bt').BTProject,
+  project: BTProject,
   debugStatuses: Map<string, import('../types/bt').NodeStatus>
 ): { nodes: Node[]; edges: Edge[] } {
   const tree = project.trees.find((t) => t.id === treeId);
@@ -58,10 +58,10 @@ const BTCanvas: React.FC = () => {
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = React.useState<string | null>(null);
 
-  // Track if we should force layout
-  const forceLayoutRef = useRef(true); // Start true for initial load
-  const prevTreeIdRef = useRef<string | null>(null);
-  const prevProjectRef = useRef<typeof project | null>(null);
+  // Track if we should force layout (tree switch or initial load)
+  const forceLayoutRef = useRef(true);
+  // Track the last tree we synced from, to detect real project changes
+  const lastSyncedTreeRef = useRef<string | null>(null);
 
   const initial = useMemo(
     () => buildFlowNodes(activeTreeId, project, debugState.nodeStatuses),
@@ -77,27 +77,19 @@ const BTCanvas: React.FC = () => {
     setSelectedEdgeId((prev) => (prev === edgeId ? null : prev));
   }, [setEdges]);
 
-  // Sync when project / active tree / debug changes
+  // Sync: responds to tree switch and external project changes (like XML load)
+  // NOT triggered by our own saveToStore (we use forceLayoutRef for that)
   React.useEffect(() => {
-    // Detect if this is a tree switch (force layout) or just a save (preserve positions)
-    const prevTreeId = prevTreeIdRef.current;
-    const prevProject = prevProjectRef.current;
-
-    const shouldForceLayout =
-      forceLayoutRef.current ||
-      prevTreeId !== activeTreeId ||
-      // Project reference changed (e.g., new XML loaded)
-      (prevProject !== null && prevProject !== project);
-
-    prevTreeIdRef.current = activeTreeId;
-    prevProjectRef.current = project;
-    forceLayoutRef.current = false;
+    // Force layout when switching trees or first load
+    const shouldForceLayout = forceLayoutRef.current || lastSyncedTreeRef.current !== activeTreeId;
 
     if (shouldForceLayout) {
       // Full rebuild with autoLayout for tree switch or initial load
       const { nodes: n, edges: e } = buildFlowNodes(activeTreeId, project, debugState.nodeStatuses);
       setNodes(n);
       setEdges(withSelectedEdge(e, selectedEdgeId, deleteEdge));
+      lastSyncedTreeRef.current = activeTreeId;
+      forceLayoutRef.current = false;
     } else {
       // Incremental update: only sync structure from project, preserve existing positions
       const tree = project.trees.find((t) => t.id === activeTreeId);
@@ -117,7 +109,7 @@ const BTCanvas: React.FC = () => {
       });
       setEdges((prevEdges) => withSelectedEdge(prevEdges, selectedEdgeId, deleteEdge));
     }
-  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge]);
+  }, [activeTreeId, debugState.nodeStatuses, selectedEdgeId, deleteEdge]);
 
   // Highlight selected node
   React.useEffect(() => {
@@ -172,6 +164,7 @@ const BTCanvas: React.FC = () => {
   );
 
   // Save tree back to store when nodes/edges change (debounced)
+  // This does NOT trigger the sync effect - they're decoupled
   const saveTimerRef = useRef<number | null>(null);
   const saveToStore = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
