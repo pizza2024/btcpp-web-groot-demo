@@ -16,8 +16,20 @@ function parseTreeNode(el: Element, depth = 0): BTTreeNode {
   const type = isLeafCategory && idAttr ? idAttr : xmlTag;
 
   const ports: Record<string, string> = {};
+  const preconditions: Record<string, string> = {};
+  const postconditions: Record<string, string> = {};
+
+  // Pre/post condition attribute names
+  const PRE_KEYS = ['_failureIf', '_successIf', '_skipIf', '_while'];
+  const POST_KEYS = ['_onSuccess', '_onFailure', '_onHalted', '_post'];
+
   Array.from(el.attributes).forEach((attr) => {
-    if (attr.name !== 'ID' && attr.name !== 'name') {
+    if (attr.name === 'ID' || attr.name === 'name') return;
+    if (PRE_KEYS.includes(attr.name)) {
+      preconditions[attr.name] = attr.value;
+    } else if (POST_KEYS.includes(attr.name)) {
+      postconditions[attr.name] = attr.value;
+    } else {
       ports[attr.name] = attr.value;
     }
   });
@@ -37,7 +49,15 @@ function parseTreeNode(el: Element, depth = 0): BTTreeNode {
     children.push(parseTreeNode(child as Element, depth + 1));
   });
 
-  return { id, type, name, ports, children };
+  return {
+    id,
+    type,
+    name,
+    ports,
+    children,
+    ...(Object.keys(preconditions).length > 0 && { preconditions }),
+    ...(Object.keys(postconditions).length > 0 && { postconditions }),
+  };
 }
 
 export function parseXML(xmlText: string): BTProject {
@@ -158,6 +178,16 @@ function serializeNode(
   }
 
   Object.entries(node.ports).forEach(([k, v]) => {
+    attrs.push(`${k}="${escapeXml(v)}"`);
+  });
+
+  // Preconditions
+  Object.entries(node.preconditions ?? {}).forEach(([k, v]) => {
+    attrs.push(`${k}="${escapeXml(v)}"`);
+  });
+
+  // Postconditions
+  Object.entries(node.postconditions ?? {}).forEach(([k, v]) => {
     attrs.push(`${k}="${escapeXml(v)}"`);
   });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CATEGORY_COLORS, PORT_DIRECTIONS } from '../types/bt-constants';
+import { CATEGORY_COLORS, PORT_DIRECTIONS, PORT_TYPES } from '../types/bt-constants';
 import type { BTNodeCategory, BTNodeDefinition, BTPort, PortDirection } from '../types/bt';
 
 interface PortFormState {
@@ -7,6 +7,7 @@ interface PortFormState {
   direction: PortDirection;
   description: string;
   defaultValue: string;
+  portType: string;
 }
 
 const emptyPort: PortFormState = {
@@ -14,6 +15,7 @@ const emptyPort: PortFormState = {
   direction: 'input',
   description: '',
   defaultValue: '',
+  portType: 'string',
 };
 
 interface NodeModelModalProps {
@@ -62,6 +64,7 @@ const NodeModelModal: React.FC<Props> = (props) => {
         direction: p.direction,
         description: p.description ?? '',
         defaultValue: p.defaultValue ?? '',
+        portType: p.portType ?? 'string',
       })) ?? []);
     }
   }, [props]);
@@ -89,6 +92,7 @@ const NodeModelModal: React.FC<Props> = (props) => {
       .map(p => ({
         name: p.name.trim(),
         direction: p.direction,
+        portType: p.portType !== 'string' ? p.portType : undefined,
         description: p.description.trim() || undefined,
         defaultValue: p.defaultValue.trim() || undefined,
       }));
@@ -226,6 +230,17 @@ const NodeModelModal: React.FC<Props> = (props) => {
                         >
                           {PORT_DIRECTIONS.map(d => (
                             <option key={d.value} value={d.value}>{d.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="port-field port-field-type">
+                        <label>Type</label>
+                        <select
+                          value={port.portType}
+                          onChange={(e) => handlePortChange(index, 'portType', e.target.value)}
+                        >
+                          {PORT_TYPES.map(t => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
                           ))}
                         </select>
                       </div>

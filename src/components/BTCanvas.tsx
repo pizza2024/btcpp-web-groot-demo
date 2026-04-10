@@ -236,7 +236,12 @@ const BTCanvas: React.FC = () => {
   }, []);
 
   // Handle edit modal save (for editing node instances on canvas)
-  const handleEditSave = useCallback((data: { name?: string; ports: Record<string, string> }) => {
+  const handleEditSave = useCallback((data: {
+    name?: string;
+    ports: Record<string, string>;
+    preconditions?: Record<string, string>;
+    postconditions?: Record<string, string>;
+  }) => {
     if (!editingNodeId) return;
 
     // Update local nodes state for immediate UI feedback
@@ -246,6 +251,8 @@ const BTCanvas: React.FC = () => {
         nodeType: string;
         label: string;
         ports?: Record<string, string>;
+        preconditions?: Record<string, string>;
+        postconditions?: Record<string, string>;
       };
       if (!node || !nodeData) return prev;
 
@@ -257,6 +264,8 @@ const BTCanvas: React.FC = () => {
               ...n.data,
               label: data.name !== undefined ? data.name : nodeData.label,
               ports: data.ports ?? nodeData.ports,
+              preconditions: data.preconditions ?? nodeData.preconditions,
+              postconditions: data.postconditions ?? nodeData.postconditions,
             },
           };
         }
@@ -271,6 +280,10 @@ const BTCanvas: React.FC = () => {
     if (data.ports !== undefined) {
       const { updateNodePorts } = useBTStore.getState();
       updateNodePorts(editingNodeId, data.ports);
+    }
+    if (data.preconditions !== undefined || data.postconditions !== undefined) {
+      const { updateNodeConditions } = useBTStore.getState();
+      updateNodeConditions(editingNodeId, data.preconditions, data.postconditions);
     }
   }, [editingNodeId, setNodes, updateNodeName]);
 
@@ -433,7 +446,14 @@ const BTCanvas: React.FC = () => {
       {editingNodeId && (() => {
         const node = nodes.find((n) => n.id === editingNodeId);
         if (!node) return null;
-        const data = node.data as { nodeType: string; category: string; label: string; ports?: Record<string, string> };
+        const data = node.data as {
+          nodeType: string;
+          category: string;
+          label: string;
+          ports?: Record<string, string>;
+          preconditions?: Record<string, string>;
+          postconditions?: Record<string, string>;
+        };
         return (
           <NodeEditModal
             nodeId={node.id}
@@ -441,6 +461,8 @@ const BTCanvas: React.FC = () => {
             nodeCategory={data.category}
             nodeName={data.label !== data.nodeType ? data.label : undefined}
             ports={data.ports ?? {}}
+            preconditions={data.preconditions}
+            postconditions={data.postconditions}
             availableTrees={project.trees.map((t) => t.id)}
             onSave={handleEditSave}
             onClose={() => setEditingNodeId(null)}

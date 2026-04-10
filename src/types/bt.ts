@@ -8,6 +8,7 @@ export interface BTPort {
   direction: PortDirection;
   description?: string;
   defaultValue?: string;
+  portType?: string; // int, string, bool, double, NodeStatus, Any
 }
 
 export interface BTNodeDefinition {
@@ -25,6 +26,9 @@ export interface BTTreeNode {
   name?: string;        // instance name / alias
   ports: Record<string, string>;  // port name -> value/BB key
   children: BTTreeNode[];
+  // Pre/Post conditions (instance-level overrides)
+  preconditions?: Record<string, string>;   // _successIf, _failureIf, _skipIf, _while
+  postconditions?: Record<string, string>;  // _onSuccess, _onFailure, _onHalted, _post
 }
 
 export interface BTTree {

@@ -12,6 +12,8 @@ export interface BTFlowNodeData {
   category: string;
   colors: { bg: string; border: string; text: string };
   ports: Record<string, string>;
+  preconditions?: Record<string, string>;
+  postconditions?: Record<string, string>;
   childIndex?: number;
   childrenCount: number;
   [key: string]: unknown;
@@ -47,6 +49,8 @@ export function treeToFlow(
         category: btNode.type === EDITOR_ROOT_TYPE ? 'ROOT' : category,
         colors: btNode.type === EDITOR_ROOT_TYPE ? CATEGORY_COLORS['ROOT'] : colors,
         ports: btNode.ports,
+        preconditions: btNode.preconditions,
+        postconditions: btNode.postconditions,
         childIndex,
         childrenCount,
         isRoot: btNode.type === EDITOR_ROOT_TYPE,
@@ -96,6 +100,8 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
       nodeType: string;
       label: string;
       ports?: Record<string, string>;
+      preconditions?: Record<string, string>;
+      postconditions?: Record<string, string>;
     };
     const childIds = children.get(nodeId) ?? [];
     return {
@@ -103,6 +109,8 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
       type: data.nodeType,
       name: data.label !== data.nodeType ? data.label : undefined,
       ports: (data.ports as Record<string, string>) ?? {},
+      preconditions: data.preconditions,
+      postconditions: data.postconditions,
       children: childIds.map(buildNode),
     };
   }

@@ -8,8 +8,15 @@ interface NodeEditModalProps {
   nodeCategory: string;
   nodeName?: string;
   ports: Record<string, string>;
+  preconditions?: Record<string, string>;
+  postconditions?: Record<string, string>;
   availableTrees?: string[];
-  onSave: (data: { name?: string; ports: Record<string, string> }) => void;
+  onSave: (data: {
+    name?: string;
+    ports: Record<string, string>;
+    preconditions?: Record<string, string>;
+    postconditions?: Record<string, string>;
+  }) => void;
   onClose: () => void;
 }
 
@@ -23,41 +30,102 @@ function isNumericPort(name: string): boolean {
     n.includes('delay') || n.includes('timeout') || n.includes('attempt') || n.includes('cycle');
 }
 
+// Pre/post condition attribute keys
+const PRE_KEYS = ['_failureIf', '_successIf', '_skipIf', '_while'] as const;
+const POST_KEYS = ['_onSuccess', '_onFailure', '_onHalted', '_post'] as const;
+
+const PRE_LABELS: Record<string, string> = {
+  _failureIf: 'Failure if',
+  _successIf: 'Success if',
+  _skipIf: 'Skip if',
+  _while: 'While (guard)',
+};
+
+const POST_LABELS: Record<string, string> = {
+  _onSuccess: 'On Success',
+  _onFailure: 'On Failure',
+  _onHalted: 'On Halted',
+  _post: 'Post (any)',
+};
+
 const NodeEditModal: React.FC<NodeEditModalProps> = ({
-  nodeId, nodeType, nodeCategory, nodeName, ports, availableTrees = [], onSave, onClose
+  nodeId, nodeType, nodeCategory, nodeName, ports, preconditions = {}, postconditions = {},
+  availableTrees = [], onSave, onClose
 }) => {
   const nodeDef = useMemo(() => getNodeDef(nodeType), [nodeType]);
 
-  // For SubTree, name field is the target tree ID
   const isSubTree = nodeType === 'SubTree';
   const isLeaf = nodeCategory === 'Action' || nodeCategory === 'Condition';
   const isControl = nodeCategory === 'Control';
 
-  // Local state
+  // ─── Instance state ───────────────────────────────────────────────────
   const [instanceName, setInstanceName] = useState(nodeName ?? '');
   const [subTreeTarget, setSubTreeTarget] = useState(isSubTree ? (nodeName ?? '') : '');
   const [autoRemap, setAutoRemap] = useState(ports['__autoremap'] === 'true' || ports['__autoremap'] === '1');
-  const [portValues, setPortValues] = useState<Record<string, string>>({ ...ports });
 
-  // Initialize — filter out __autoremap from port values display
+  // ─── Port values state ─────────────────────────────────────────────────
+  const [portValues, setPortValues] = useState<Record<string, string>>({});
+
+  // ─── Pre/Post conditions state ─────────────────────────────────────────
+  const [preCond, setPreCond] = useState<Record<string, string>>({});
+  const [postCond, setPostCond] = useState<Record<string, string>>({});
+
+  // ─── Initialize ────────────────────────────────────────────────────────
   useEffect(() => {
-    const filtered = { ...ports };
-    delete filtered['__autoremap'];
-    setPortValues(filtered);
+    // Ports: filter out __autoremap from display
+    const filteredPorts = { ...ports };
+    delete filteredPorts['__autoremap'];
+    setPortValues(filteredPorts);
+
     setInstanceName(nodeName ?? '');
     setSubTreeTarget(isSubTree ? (nodeName ?? '') : '');
     setAutoRemap(ports['__autoremap'] === 'true' || ports['__autoremap'] === '1');
+
+    // Preconditions
+    const initPre: Record<string, string> = {};
+    PRE_KEYS.forEach(k => { initPre[k] = preconditions[k] ?? ''; });
+    setPreCond(initPre);
+
+    // Postconditions
+    const initPost: Record<string, string> = {};
+    POST_KEYS.forEach(k => { initPost[k] = postconditions[k] ?? ''; });
+    setPostCond(initPost);
   }, [nodeId]);
 
-  const defPorts = (nodeDef?.ports ?? []).filter((p: any) => p.name !== '__autoremap');
+  // ─── Handlers ───────────────────────────────────────────────────────────
+  const handlePortChange = (name: string, value: string) => {
+    setPortValues(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePreChange = (key: string, value: string) => {
+    setPreCond(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handlePostChange = (key: string, value: string) => {
+    setPostCond(prev => ({ ...prev, [key]: value }));
+  };
 
   const handleSave = () => {
     const finalPorts = { ...portValues };
     if (isSubTree) {
       finalPorts['__autoremap'] = autoRemap ? 'true' : 'false';
     }
-    const name = isSubTree ? subTreeTarget : (isControl ? instanceName : undefined);
-    onSave({ name: name || undefined, ports: finalPorts });
+
+    // Clean up empty pre/post conditions
+    const cleanPre: Record<string, string> = {};
+    PRE_KEYS.forEach(k => { if (preCond[k].trim()) cleanPre[k] = preCond[k].trim(); });
+
+    const cleanPost: Record<string, string> = {};
+    POST_KEYS.forEach(k => { if (postCond[k].trim()) cleanPost[k] = postCond[k].trim(); });
+
+    const name = isSubTree ? subTreeTarget : (isControl && !isLeaf ? instanceName : undefined);
+
+    onSave({
+      name: name || undefined,
+      ports: finalPorts,
+      preconditions: Object.keys(cleanPre).length > 0 ? cleanPre : undefined,
+      postconditions: Object.keys(cleanPost).length > 0 ? cleanPost : undefined,
+    });
     onClose();
   };
 
@@ -65,9 +133,10 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
     if (e.target === e.currentTarget) onClose();
   };
 
-  const handlePortChange = (name: string, value: string) => {
-    setPortValues(prev => ({ ...prev, [name]: value }));
-  };
+  const defPorts = (nodeDef?.ports ?? []).filter((p: any) => p.name !== '__autoremap');
+
+  // Check if any section has content to show
+  const hasPortValues = defPorts.length > 0 || Object.keys(portValues).some(k => k !== '__autoremap');
 
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
@@ -83,7 +152,8 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
         {/* Body */}
         <div className="modal-body">
-          {/* Node description (read-only) */}
+
+          {/* ─── Node description ───────────────────────────────────────── */}
           {nodeDef?.description && (
             <div className="form-group">
               <label>Description</label>
@@ -91,25 +161,29 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
             </div>
           )}
 
-          {/* Name (Control nodes only — alias) */}
-          {isControl && !isSubTree && (
-            <div className="form-group">
-              <label>Name (alias)</label>
-              <input
-                type="text"
-                value={instanceName}
-                onChange={(e) => setInstanceName(e.target.value)}
-                placeholder="optional display name"
-              />
-              <span className="form-hint">Display name shown on the node</span>
+          {/* ─── Instance Section ────────────────────────────────────────── */}
+          {(isControl && !isSubTree) && (
+            <div className="edit-section">
+              <div className="edit-section-title">Instance</div>
+              <div className="form-group">
+                <label>Name (alias)</label>
+                <input
+                  type="text"
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  placeholder="optional display name"
+                />
+                <span className="form-hint">Display name shown on the node</span>
+              </div>
             </div>
           )}
 
-          {/* SubTree Target */}
+          {/* ─── SubTree Section ─────────────────────────────────────────── */}
           {isSubTree && (
-            <>
+            <div className="edit-section">
+              <div className="edit-section-title">SubTree</div>
               <div className="form-group">
-                <label>SubTree Target</label>
+                <label>Target Tree</label>
                 <select
                   value={subTreeTarget}
                   onChange={(e) => setSubTreeTarget(e.target.value)}
@@ -119,15 +193,13 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
                     <option key={treeId} value={treeId}>{treeId}</option>
                   ))}
                 </select>
-                <span className="form-hint">Select the behavior tree to reference</span>
               </div>
               <div className="form-group">
-                <label>
+                <label className="checkbox-label">
                   <input
                     type="checkbox"
                     checked={autoRemap}
                     onChange={(e) => setAutoRemap(e.target.checked)}
-                    style={{ marginRight: 6 }}
                   />
                   Auto-remap ports by name
                 </label>
@@ -135,69 +207,87 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
                   Automatically map child tree input/output ports to matching parent ports
                 </span>
               </div>
-            </>
+            </div>
           )}
 
-          {/* Port Values */}
-          {defPorts.length > 0 && (
-            <div className="form-group">
-              <label>Port Values</label>
-              <div className="port-list-edit">
-                {defPorts.map((port: any) => (
-                  <div key={port.name} className="port-row-edit">
-                    <div className="port-label">
-                      <span className="port-name">[{port.direction}] {port.name}</span>
-                      {port.description && (
-                        <span className="port-desc"> — {port.description}</span>
-                      )}
-                      {port.defaultValue && (
-                        <span className="form-hint"> default: {port.defaultValue}</span>
-                      )}
-                    </div>
-                    {isNumericPort(port.name) ? (
-                      <input
-                        type="number"
-                        value={portValues[port.name] ?? ''}
-                        onChange={(e) => handlePortChange(port.name, e.target.value)}
-                        placeholder={port.defaultValue ?? '0'}
-                        min={0}
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        value={portValues[port.name] ?? ''}
-                        onChange={(e) => handlePortChange(port.name, e.target.value)}
-                        placeholder={port.defaultValue ?? '{}'}
-                      />
+          {/* ─── Port Values Section ─────────────────────────────────────── */}
+          {hasPortValues && (
+            <div className="edit-section">
+              <div className="edit-section-title">Port Values</div>
+              {defPorts.map((port: any) => (
+                <div key={port.name} className="port-row-edit">
+                  <div className="port-label">
+                    <span className="port-dir">[{port.direction}]</span>
+                    <span className="port-name">{port.name}</span>
+                    {port.description && (
+                      <span className="port-desc"> — {port.description}</span>
+                    )}
+                    {port.defaultValue && (
+                      <span className="form-hint"> default: {port.defaultValue}</span>
                     )}
                   </div>
-                ))}
-              </div>
+                  {isNumericPort(port.name) ? (
+                    <input
+                      type="number"
+                      value={portValues[port.name] ?? ''}
+                      onChange={(e) => handlePortChange(port.name, e.target.value)}
+                      placeholder={port.defaultValue ?? '0'}
+                      min={0}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={portValues[port.name] ?? ''}
+                      onChange={(e) => handlePortChange(port.name, e.target.value)}
+                      placeholder={port.defaultValue ?? '{key}'}
+                    />
+                  )}
+                </div>
+              ))}
               <span className="form-hint">
                 Use <code>{'{key}'}</code> for blackboard references
               </span>
             </div>
           )}
 
-          {/* Leaf nodes without ports */}
-          {isLeaf && defPorts.length === 0 && (
-            <div className="form-group">
-              <label>Note</label>
-              <div className="info-text">
-                This {nodeType} node has no configurable ports.
-              </div>
+          {/* ─── Pre-conditions Section ───────────────────────────────────── */}
+          <div className="edit-section">
+            <div className="edit-section-title">
+              Pre-conditions
+              <span className="section-hint">(evaluated before tick)</span>
             </div>
-          )}
+            {PRE_KEYS.map(key => (
+              <div key={key} className="condition-row">
+                <label className="condition-label">{PRE_LABELS[key]}</label>
+                <input
+                  type="text"
+                  value={preCond[key] ?? ''}
+                  onChange={(e) => handlePreChange(key, e.target.value)}
+                  placeholder={key === '_while' ? 'condition' : 'script expression'}
+                />
+              </div>
+            ))}
+          </div>
 
-          {/* Control nodes without ports */}
-          {isControl && defPorts.length === 0 && !isSubTree && (
-            <div className="form-group">
-              <label>Note</label>
-              <div className="info-text">
-                This {nodeType} node has no configurable ports.
-              </div>
+          {/* ─── Post-conditions Section ─────────────────────────────────── */}
+          <div className="edit-section">
+            <div className="edit-section-title">
+              Post-conditions
+              <span className="section-hint">(evaluated after completion)</span>
             </div>
-          )}
+            {POST_KEYS.map(key => (
+              <div key={key} className="condition-row">
+                <label className="condition-label">{POST_LABELS[key]}</label>
+                <input
+                  type="text"
+                  value={postCond[key] ?? ''}
+                  onChange={(e) => handlePostChange(key, e.target.value)}
+                  placeholder="script expression"
+                />
+              </div>
+            ))}
+          </div>
+
         </div>
 
         {/* Footer */}

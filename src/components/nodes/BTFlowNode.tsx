@@ -1,7 +1,7 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { STATUS_COLORS } from '../../types/bt-constants';
+import { STATUS_COLORS, BUILTIN_NODES } from '../../types/bt-constants';
 
 interface BTNodeData {
   label: string;
@@ -9,6 +9,8 @@ interface BTNodeData {
   category: string;
   colors: { bg: string; border: string; text: string };
   ports: Record<string, string>;
+  preconditions?: Record<string, string>;
+  postconditions?: Record<string, string>;
   status?: string;
   childrenCount: number;
   isRoot?: boolean;
@@ -17,7 +19,7 @@ interface BTNodeData {
 
 const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
   const d = data as BTNodeData;
-  const { label, category, colors, ports, status, childrenCount, isRoot } = d;
+  const { label, category, colors, ports, preconditions, postconditions, status, childrenCount, isRoot } = d;
 
   const statusColor = status ? STATUS_COLORS[status] : undefined;
   const borderColor = statusColor ?? (selected ? '#ffffff' : colors.border);
@@ -28,8 +30,31 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
   const isLeaf = category === 'Leaf';
   const isRootNode = isRoot === true;
 
-  // Port values display
+  // Look up port definitions for this node type
+  const nodeDef = BUILTIN_NODES.find(n => n.type === d.nodeType);
+
+  // Group port entries by direction
   const portEntries = ports ? Object.entries(ports).filter(([, v]) => v !== '') : [];
+
+  // Build port groups
+  const inputPorts: Array<[string, string]> = [];
+  const outputPorts: Array<[string, string]> = [];
+  const otherPorts: Array<[string, string]> = [];
+
+  portEntries.forEach(([k, v]) => {
+    const def = nodeDef?.ports?.find(p => p.name === k);
+    if (def?.direction === 'input') {
+      inputPorts.push([k, v]);
+    } else if (def?.direction === 'output') {
+      outputPorts.push([k, v]);
+    } else {
+      otherPorts.push([k, v]);
+    }
+  });
+
+  // Check for pre/post conditions
+  const hasPre = preconditions && Object.values(preconditions).some(v => v);
+  const hasPost = postconditions && Object.values(postconditions).some(v => v);
 
   // Double click opens edit modal (disabled for ROOT)
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -149,12 +174,46 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
       {/* Ports summary */}
       {portEntries.length > 0 && (
         <div style={{ marginTop: 4, fontSize: 10, opacity: 0.8 }}>
-          {portEntries.map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
-              <span style={{ opacity: 0.7 }}>{k}:</span>
-              <span style={{ color: '#ffe080' }}>{v}</span>
+          {inputPorts.length > 0 && (
+            <div style={{ marginBottom: 2 }}>
+              <span style={{ fontSize: 8, opacity: 0.5, textTransform: 'uppercase', marginRight: 4 }}>IN</span>
+              {inputPorts.map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 4, paddingLeft: 8 }}>
+                  <span style={{ opacity: 0.7 }}>{k}:</span>
+                  <span style={{ color: '#ffe080' }}>{v}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+          {outputPorts.length > 0 && (
+            <div style={{ marginBottom: 2 }}>
+              <span style={{ fontSize: 8, opacity: 0.5, textTransform: 'uppercase', marginRight: 4 }}>OUT</span>
+              {outputPorts.map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 4, paddingLeft: 8 }}>
+                  <span style={{ opacity: 0.7 }}>{k}:</span>
+                  <span style={{ color: '#ffe080' }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {otherPorts.length > 0 && (
+            <div>
+              {otherPorts.map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
+                  <span style={{ opacity: 0.7 }}>{k}:</span>
+                  <span style={{ color: '#ffe080' }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pre/Post condition indicators */}
+      {(hasPre || hasPost) && (
+        <div style={{ marginTop: 3, fontSize: 8, opacity: 0.6 }}>
+          {hasPre && <span title="Has pre-conditions">⏱</span>}
+          {hasPost && <span title="Has post-conditions">↩</span>}
         </div>
       )}
 

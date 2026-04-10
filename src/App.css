@@ -464,8 +464,92 @@
 }
 
 .node-edit-modal {
-  width: 440px;
+  width: 480px;
   max-width: 95vw;
+}
+
+/* Edit modal sections */
+.edit-section {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: #141428;
+  border: 1px solid #2a3a5a;
+  border-radius: 6px;
+}
+
+.edit-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #88aacc;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-hint {
+  font-size: 9px;
+  color: #556;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Condition rows (pre/post) */
+.condition-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.condition-row:last-child {
+  margin-bottom: 0;
+}
+
+.condition-label {
+  min-width: 90px;
+  font-size: 11px;
+  color: #8899bb;
+  flex-shrink: 0;
+}
+
+.condition-row input {
+  flex: 1;
+  background: #1a1a2e;
+  border: 1px solid #334;
+  color: #ccd;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.condition-row input:focus {
+  border-color: #4a80d0;
+  outline: none;
+}
+
+.condition-row input::placeholder {
+  color: #445;
+}
+
+/* Checkbox label */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #aac;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #4a80d0;
 }
 
 .input-disabled {
@@ -645,6 +729,12 @@
 
 .port-field-dir {
   width: 80px;
+  flex-shrink: 0;
+}
+
+.port-field-type {
+  width: 90px;
+  flex-shrink: 0;
 }
 
 .port-field-default {
@@ -657,6 +747,7 @@
 
 .port-item-body .port-field-name { flex: 2; min-width: 0; }
 .port-item-body .port-field-dir { width: 80px; flex-shrink: 0; }
+.port-item-body .port-field-type { width: 90px; flex-shrink: 0; }
 .port-item-body .port-field-default { flex: 1; min-width: 0; }
 
 .ports-empty {
