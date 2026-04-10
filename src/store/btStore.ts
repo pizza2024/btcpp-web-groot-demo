@@ -86,7 +86,7 @@ export const useBTStore = create<BTStore>()(
   loadXML(xml) {
     try {
       const project = parseXML(xml);
-      set({ project, activeTreeId: project.mainTreeId, selectedNodeId: null, debugState: defaultDebug });
+      set({ project, activeTreeId: project.mainTreeId, selectedNodeId: null, debugState: defaultDebug, localNodes: [], localEdges: [] });
     } catch (e) {
       alert('Failed to parse XML:\n' + (e as Error).message);
     }
@@ -97,7 +97,7 @@ export const useBTStore = create<BTStore>()(
   },
 
   setProject(p) {
-    set({ project: p });
+    set({ project: p, localNodes: [], localEdges: [] });
   },
 
   setActiveTree(id) {
