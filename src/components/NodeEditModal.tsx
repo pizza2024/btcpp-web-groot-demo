@@ -59,7 +59,7 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const isControl = nodeCategory === 'Control';
 
   // ─── Instance state ───────────────────────────────────────────────────
-  const [instanceName, setInstanceName] = useState(nodeName ?? '');
+  const [instanceName, setInstanceName] = useState(isLeaf ? nodeType : (nodeName ?? ''));
   const [subTreeTarget, setSubTreeTarget] = useState(isSubTree ? (nodeName ?? '') : '');
   const [autoRemap, setAutoRemap] = useState(ports['__autoremap'] === 'true' || ports['__autoremap'] === '1');
 
@@ -161,7 +161,7 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
                 <label>NodeType</label>
                 <input
                   type="text"
-                  value={nodeType}
+                  value={nodeCategory}
                   disabled
                   className="input-disabled"
                 />
