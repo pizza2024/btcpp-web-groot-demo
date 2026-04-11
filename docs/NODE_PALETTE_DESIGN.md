@@ -168,11 +168,11 @@ interface BTTreeNode {
 ### 5.1 Node Palette 分组展示
 
 ```
-▼ Control (15)
-  Sequence, Fallback, Parallel, ...
+▼ Control (18)
+  Sequence, Fallback, SequenceWithMemory, ReactiveSequence, ReactiveFallback, Parallel, ParallelAll, IfThenElse, WhileDoElse, TryCatch, Switch2/Switch3/Switch4/Switch5/Switch6, ManualSelector, AsyncSequence, AsyncFallback
 
-▼ Decorator (14)
-  Inverter, ForceSuccess, RetryUntilSuccessful, ...
+▼ Decorator (16)
+  Inverter, ForceSuccess, ForceFailure, KeepRunningUntilFailure, Repeat, RetryUntilSuccessful, Timeout, Delay, RunOnce, Precondition, LoopInt, LoopBool, LoopDouble, LoopString, SkipUnlessUpdated, WaitValueUpdate
 
 ▼ Action (7)
   AlwaysSuccess, AlwaysFailure, SetBlackboard, ...
@@ -202,9 +202,9 @@ interface BTTreeNode {
 ## 6. 实现计划
 
 ### Phase 1: 更新内置节点数据
-- [ ] 更新 `bt-constants.ts`，添加所有 Control/Decorator 内置节点及其端口
-- [ ] 添加 Condition 内置节点
-- [ ] 更新 NodePalette 按五大类分组展示
+- [x] 更新 `bt-constants.ts`，添加所有 Control/Decorator 内置节点及其端口 ✅
+- [x] 添加 Condition 内置节点 ✅
+- [x] 更新 NodePalette 按五大类分组展示 ✅
 
 ### Phase 2: 自定义节点创建/编辑表单
 - [ ] 添加 "Add Custom Node" 展开式表单
