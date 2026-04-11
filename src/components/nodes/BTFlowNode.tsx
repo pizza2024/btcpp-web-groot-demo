@@ -64,29 +64,36 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
     }));
   };
 
-  // Calculate handle positions for multi-children nodes
+  // Calculate handle positions based on node category
+  // ROOT: only output (source) handle at bottom
+  // Leaf (Action/Condition): only input (target) handle at top
+  // Control/Decorator/SubTree: both input and output handles
   const handles: React.ReactNode[] = [];
 
-  // Target handle (for incoming edge) - always at top
-  handles.push(
-    <Handle
-      key="target"
-      type="target"
-      position={Position.Top}
-      style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
-    />
-  );
+  // Target handle (input) - for all non-ROOT nodes
+  if (!isRootNode) {
+    handles.push(
+      <Handle
+        key="target"
+        type="target"
+        position={Position.Top}
+        style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
+      />
+    );
+  }
 
-  // Source handle - single handle at bottom center
-  // Multiple edges can connect from this single handle to create multiple children
-  handles.push(
-    <Handle
-      key="source"
-      type="source"
-      position={Position.Bottom}
-      style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
-    />
-  );
+  // Source handle (output) - only for nodes that can have children
+  // ROOT, Control, Decorator, SubTree can have children (except leaf nodes)
+  if (!isLeaf) {
+    handles.push(
+      <Handle
+        key="source"
+        type="source"
+        position={Position.Bottom}
+        style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
+      />
+    );
+  }
 
   // ROOT node: render as a thin visual container bar
   if (isRootNode) {
