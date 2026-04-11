@@ -33,7 +33,26 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
   const nodeDef = BUILTIN_NODES.find(n => n.type === d.nodeType);
 
   // Group port entries by direction
-  const portEntries = ports ? Object.entries(ports).filter(([, v]) => v !== '') : [];
+  // Combine port values from node data with port definitions
+  // Show all defined ports, using defaultValue if no value set
+  const definedPorts = nodeDef?.ports ?? [];
+  const portEntries: Array<[string, string]> = [];
+  
+  // First add ports from node data (non-empty values)
+  if (ports) {
+    Object.entries(ports).forEach(([k, v]) => {
+      if (v !== '') {
+        portEntries.push([k, v]);
+      }
+    });
+  }
+  
+  // Then add ports from definition that aren't in node data yet
+  definedPorts.forEach((def) => {
+    if (!portEntries.find(([k]) => k === def.name) && def.name !== '__autoremap') {
+      portEntries.push([def.name, '']);
+    }
+  });
 
   // Build port groups based on direction
   const inputPorts: Array<[string, string]> = [];
@@ -41,7 +60,7 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
   const inoutPorts: Array<[string, string]> = [];
 
   portEntries.forEach(([k, v]) => {
-    const def = nodeDef?.ports?.find(p => p.name === k);
+    const def = definedPorts.find(p => p.name === k);
     if (def?.direction === 'input') {
       inputPorts.push([k, v]);
     } else if (def?.direction === 'output') {
@@ -211,8 +230,8 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
                   }}>IN</span>
                   <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
                   <span style={{ 
-                    color: v.startsWith('{') ? '#80c0ff' : '#ffe080',
-                    fontStyle: v.startsWith('{') ? 'italic' : 'normal'
+                    color: v.startsWith('{') ? '#80c0ff' : v ? '#ffe080' : '#666',
+                    fontStyle: v.startsWith('{') ? 'italic' : (v ? 'normal' : 'italic')
                   }}>
                     {v || '(empty)'}
                   </span>
@@ -249,8 +268,8 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
                   }}>OUT</span>
                   <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
                   <span style={{ 
-                    color: v.startsWith('{') ? '#80c0ff' : '#ffe080',
-                    fontStyle: v.startsWith('{') ? 'italic' : 'normal'
+                    color: v.startsWith('{') ? '#80c0ff' : v ? '#ffe080' : '#666',
+                    fontStyle: v.startsWith('{') ? 'italic' : (v ? 'normal' : 'italic')
                   }}>
                     {v || '(empty)'}
                   </span>
@@ -288,8 +307,8 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
                   }}>IN/OUT</span>
                   <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
                   <span style={{ 
-                    color: v.startsWith('{') ? '#80c0ff' : '#ffe080',
-                    fontStyle: v.startsWith('{') ? 'italic' : 'normal'
+                    color: v.startsWith('{') ? '#80c0ff' : v ? '#ffe080' : '#666',
+                    fontStyle: v.startsWith('{') ? 'italic' : (v ? 'normal' : 'italic')
                   }}>
                     {v || '(empty)'}
                   </span>
