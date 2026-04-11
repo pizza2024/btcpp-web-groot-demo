@@ -96,6 +96,8 @@ const PropertiesPanel: React.FC = () => {
       // Node only in localNodes (not yet synced to tree) - only update localNodes
       setLocalCanvas(updated, localEdges);
     }
+    // Notify ReactFlow canvas to refresh nodes from localNodes
+    window.dispatchEvent(new Event('bt-nodes-updated'));
   }, [btNode, localPorts, updateNodePorts, setLocalCanvas, project.trees, activeTreeId]);
 
   // Save handler for name
@@ -116,6 +118,7 @@ const PropertiesPanel: React.FC = () => {
     } else {
       setLocalCanvas(updated, localEdges);
     }
+    window.dispatchEvent(new Event('bt-nodes-updated'));
   }, [btNode, localName, updateNodeName, setLocalCanvas, project.trees, activeTreeId]);
 
   // Save handler for SubTree target
@@ -136,6 +139,7 @@ const PropertiesPanel: React.FC = () => {
     } else {
       setLocalCanvas(updated, localEdges);
     }
+    window.dispatchEvent(new Event('bt-nodes-updated'));
   }, [btNode, localSubTreeId, updateNodeName, setLocalCanvas, project.trees, activeTreeId]);
 
   const updatePort = (name: string, value: string) => {

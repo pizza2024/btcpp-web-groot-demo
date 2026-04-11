@@ -386,6 +386,31 @@ const BTCanvas: React.FC = () => {
     setLocalCanvas(nodes, edges);
   }, [nodes, edges, setLocalCanvas]);
 
+  // When PropertiesPanel saves (updates localNodes), sync to ReactFlow nodes
+  // This handles Apply button for port values, name changes, etc.
+  React.useEffect(() => {
+    const handleNodesUpdated = () => {
+      // Read fresh localNodes from store and update ReactFlow's nodes state
+      const { localNodes: freshNodes } = useBTStore.getState();
+      if (freshNodes.length > 0) {
+        // Merge fresh node data into existing nodes (keep ReactFlow-specific props like position)
+        setNodes((prev) =>
+          prev.map((n) => {
+            const fresh = freshNodes.find((f) => f.id === n.id);
+            if (fresh) {
+              // Keep position/handleBounds from ReactFlow state, update data from store
+              return { ...n, data: { ...fresh.data } };
+            }
+            return n;
+          })
+        );
+      }
+    };
+
+    window.addEventListener('bt-nodes-updated', handleNodesUpdated);
+    return () => window.removeEventListener('bt-nodes-updated', handleNodesUpdated);
+  }, [setNodes]);
+
   // Handle node edit modal trigger
   React.useEffect(() => {
     const handleNodeEdit = (e: Event) => {
