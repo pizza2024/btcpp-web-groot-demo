@@ -168,7 +168,9 @@ const BTCanvas: React.FC = () => {
 
       // Create new node at picker position
       const newNodeId = `n_${Math.random().toString(36).slice(2, 9)}`;
-      const colors = CATEGORY_COLORS[category] || CATEGORY_COLORS.Control;
+      // Ensure category is valid key in CATEGORY_COLORS
+      const validCategory = category && category in CATEGORY_COLORS ? category : 'Control';
+      const colors = CATEGORY_COLORS[validCategory] ?? CATEGORY_COLORS.Control;
       const isLeaf = category === 'Action' || category === 'Condition';
 
       const newNode: Node = {

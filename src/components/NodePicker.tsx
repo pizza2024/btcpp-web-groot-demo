@@ -13,13 +13,44 @@ const CATEGORIES: BTNodeCategory[] = ['Action', 'Condition', 'Control', 'Decorat
 
 const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) => {
   const { project } = useBTStore();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [adjustedPosition, setAdjustedPosition] = useState(position);
+
+  // Adjust position to stay within viewport
+  useEffect(() => {
+    const PICKER_WIDTH = 260;
+    const PICKER_MAX_HEIGHT = 400;
+    const PADDING = 10;
+
+    let { x, y } = position;
+
+    // Get viewport dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Adjust horizontal position if overflow right
+    if (x + PICKER_WIDTH + PADDING > viewportWidth) {
+      x = viewportWidth - PICKER_WIDTH - PADDING;
+    }
+    // Adjust horizontal position if overflow left
+    if (x < PADDING) {
+      x = PADDING;
+    }
+
+    // Adjust vertical position if overflow bottom
+    if (y + PICKER_MAX_HEIGHT + PADDING > viewportHeight) {
+      y = viewportHeight - PICKER_MAX_HEIGHT - PADDING;
+    }
+    // Adjust vertical position if overflow top
+    if (y < PADDING) {
+      y = PADDING;
+    }
+
+    setAdjustedPosition({ x, y });
+  }, [position]);
+
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   // Close on click outside
   useEffect(() => {
@@ -66,9 +97,9 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
 
   // Calculate position to avoid viewport overflow
   const pickerStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: position.x,
-    top: position.y + 10,
+    position: 'fixed',
+    left: adjustedPosition.x,
+    top: adjustedPosition.y + 10,
     zIndex: 1000,
     width: 260,
     maxHeight: 400,
