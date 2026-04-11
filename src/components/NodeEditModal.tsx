@@ -197,6 +197,14 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
                 />
               </div>
             </div>
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <label>Description</label>
+              <input
+                type="text"
+                value={nodeDef?.description ?? ''}
+                placeholder="optional description"
+              />
+            </div>
             {isSubTree && (
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label className="checkbox-label">
