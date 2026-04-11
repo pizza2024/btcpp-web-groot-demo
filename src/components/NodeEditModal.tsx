@@ -69,6 +69,7 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   // ─── Pre/Post conditions state ─────────────────────────────────────────
   const [preCond, setPreCond] = useState<Record<string, string>>({});
   const [postCond, setPostCond] = useState<Record<string, string>>({});
+  const [description, setDescription] = useState('');
 
   // ─── Initialize ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -90,6 +91,9 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
     const initPost: Record<string, string> = {};
     POST_KEYS.forEach(k => { initPost[k] = postconditions[k] ?? ''; });
     setPostCond(initPost);
+
+    // Description
+    setDescription(nodeDef?.description ?? '');
   }, [nodeId]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────
@@ -197,14 +201,6 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
                 />
               </div>
             </div>
-            <div className="form-group" style={{ marginTop: 8 }}>
-              <label>Description</label>
-              <input
-                type="text"
-                value={nodeDef?.description ?? ''}
-                placeholder="optional description"
-              />
-            </div>
             {isSubTree && (
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label className="checkbox-label">
@@ -220,6 +216,19 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
                 </span>
               </div>
             )}
+          </div>
+
+          {/* ─── Description Section ─────────────────────────────────────── */}
+          <div className="edit-section">
+            <div className="edit-section-title">Description</div>
+            <div className="form-group">
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="optional description"
+              />
+            </div>
           </div>
 
           {/* ─── Port Values Section ─────────────────────────────────────── */}
