@@ -20,7 +20,7 @@ interface BTNodeData {
 
 const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
   const d = data as BTNodeData;
-  const { label, category, colors, ports, preconditions, postconditions, description, status, childrenCount, isRoot } = d;
+  const { label, category, colors, ports, preconditions, postconditions, description, status, isRoot } = d;
 
   const statusColor = status ? STATUS_COLORS[status] : undefined;
   const borderColor = statusColor ?? (selected ? '#ffffff' : colors.border);
@@ -79,38 +79,16 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
     />
   );
 
-  // Source handles - one per child, or one default
-  const actualChildrenCount = typeof childrenCount === 'number' ? childrenCount : 0;
-  if (actualChildrenCount > 1) {
-    // Multiple children: distribute handles evenly along bottom
-    for (let i = 0; i < actualChildrenCount; i++) {
-      const leftPercent = ((i + 1) / (actualChildrenCount + 1)) * 100;
-      handles.push(
-        <Handle
-          key={`source-${i}`}
-          type="source"
-          position={Position.Bottom}
-          style={{
-            left: `${leftPercent}%`,
-            background: '#6888aa',
-            border: 'none',
-            width: 8,
-            height: 8,
-          }}
-        />
-      );
-    }
-  } else {
-    // Single or no child: single handle at bottom center
-    handles.push(
-      <Handle
-        key="source"
-        type="source"
-        position={Position.Bottom}
-        style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
-      />
-    );
-  }
+  // Source handle - single handle at bottom center
+  // Multiple edges can connect from this single handle to create multiple children
+  handles.push(
+    <Handle
+      key="source"
+      type="source"
+      position={Position.Bottom}
+      style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
+    />
+  );
 
   // ROOT node: render as a thin visual container bar
   if (isRootNode) {

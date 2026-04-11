@@ -219,10 +219,10 @@ const BTCanvas: React.FC = () => {
 
   // Handle incomplete connection (drag ended without connecting to target)
   const onConnectEnd = useCallback(
-    (event: MouseEvent | TouchEvent, connectionState: { to: unknown }) => {
-      // If connection was completed (to is not null), do nothing
-      // When dropped in empty space, 'to' will be null
-      if (connectionState.to !== null) {
+    (event: MouseEvent | TouchEvent, connectionState: { toNode: unknown }) => {
+      // If connection was completed (toNode is not null), do nothing
+      // When dropped in empty space, 'toNode' will be null
+      if (connectionState.toNode !== null) {
         setPendingConnection(null);
         return;
       }
