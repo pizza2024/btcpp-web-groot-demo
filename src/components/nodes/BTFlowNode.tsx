@@ -155,37 +155,99 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
         {label}
       </div>
 
-      {/* Ports summary */}
+      {/* Ports display - Groot2 style */}
       {portEntries.length > 0 && (
-        <div style={{ marginTop: 4, fontSize: 10, opacity: 0.8 }}>
+        <div style={{ 
+          marginTop: 6, 
+          marginBottom: 2, 
+          paddingTop: 4,
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          fontSize: 10 
+        }}>
+          {/* Input ports */}
           {inputPorts.length > 0 && (
-            <div style={{ marginBottom: 2 }}>
-              <span style={{ fontSize: 8, opacity: 0.5, textTransform: 'uppercase', marginRight: 4 }}>IN</span>
+            <div style={{ marginBottom: 4 }}>
               {inputPorts.map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 4, paddingLeft: 8 }}>
-                  <span style={{ opacity: 0.7 }}>{k}:</span>
-                  <span style={{ color: '#ffe080' }}>{v}</span>
+                <div key={k} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  gap: 6,
+                  marginBottom: 2,
+                  background: 'rgba(0,0,0,0.2)',
+                  borderRadius: 3,
+                  padding: '2px 6px'
+                }}>
+                  <span style={{ 
+                    fontSize: 8, 
+                    opacity: 0.6, 
+                    textTransform: 'uppercase',
+                    fontWeight: 600,
+                    minWidth: 24
+                  }}>IN</span>
+                  <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
+                  <span style={{ 
+                    color: v.startsWith('{') ? '#80c0ff' : '#ffe080',
+                    fontStyle: v.startsWith('{') ? 'italic' : 'normal'
+                  }}>
+                    {v || '(empty)'}
+                  </span>
                 </div>
               ))}
             </div>
           )}
+
+          {/* Output ports */}
           {outputPorts.length > 0 && (
-            <div style={{ marginBottom: 2 }}>
-              <span style={{ fontSize: 8, opacity: 0.5, textTransform: 'uppercase', marginRight: 4 }}>OUT</span>
+            <div style={{ marginBottom: 4 }}>
               {outputPorts.map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 4, paddingLeft: 8 }}>
-                  <span style={{ opacity: 0.7 }}>{k}:</span>
-                  <span style={{ color: '#ffe080' }}>{v}</span>
+                <div key={k} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  gap: 6,
+                  marginBottom: 2,
+                  background: 'rgba(0,0,0,0.2)',
+                  borderRadius: 3,
+                  padding: '2px 6px'
+                }}>
+                  <span style={{ 
+                    fontSize: 8, 
+                    opacity: 0.6, 
+                    textTransform: 'uppercase',
+                    fontWeight: 600,
+                    minWidth: 24
+                  }}>OUT</span>
+                  <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
+                  <span style={{ 
+                    color: v.startsWith('{') ? '#80c0ff' : '#ffe080',
+                    fontStyle: v.startsWith('{') ? 'italic' : 'normal'
+                  }}>
+                    {v || '(empty)'}
+                  </span>
                 </div>
               ))}
             </div>
           )}
+
+          {/* Other ports (inout or unspecified direction) */}
           {otherPorts.length > 0 && (
             <div>
               {otherPorts.map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
-                  <span style={{ opacity: 0.7 }}>{k}:</span>
-                  <span style={{ color: '#ffe080' }}>{v}</span>
+                <div key={k} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  gap: 6,
+                  marginBottom: 2,
+                  background: 'rgba(0,0,0,0.2)',
+                  borderRadius: 3,
+                  padding: '2px 6px'
+                }}>
+                  <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
+                  <span style={{ 
+                    color: v.startsWith('{') ? '#80c0ff' : '#ffe080',
+                    fontStyle: v.startsWith('{') ? 'italic' : 'normal'
+                  }}>
+                    {v || '(empty)'}
+                  </span>
                 </div>
               ))}
             </div>
