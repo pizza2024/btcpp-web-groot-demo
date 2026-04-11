@@ -35,10 +35,10 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
   // Group port entries by direction
   const portEntries = ports ? Object.entries(ports).filter(([, v]) => v !== '') : [];
 
-  // Build port groups
+  // Build port groups based on direction
   const inputPorts: Array<[string, string]> = [];
   const outputPorts: Array<[string, string]> = [];
-  const otherPorts: Array<[string, string]> = [];
+  const inoutPorts: Array<[string, string]> = [];
 
   portEntries.forEach(([k, v]) => {
     const def = nodeDef?.ports?.find(p => p.name === k);
@@ -46,8 +46,19 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
       inputPorts.push([k, v]);
     } else if (def?.direction === 'output') {
       outputPorts.push([k, v]);
+    } else if (def?.direction === 'inout') {
+      inoutPorts.push([k, v]);
     } else {
-      otherPorts.push([k, v]);
+      // No direction info - check name patterns
+      const lowerK = k.toLowerCase();
+      if (lowerK.startsWith('in') || lowerK.startsWith('input')) {
+        inputPorts.push([k, v]);
+      } else if (lowerK.startsWith('out') || lowerK.startsWith('output')) {
+        outputPorts.push([k, v]);
+      } else {
+        // Default to input
+        inputPorts.push([k, v]);
+      }
     }
   });
 
@@ -248,19 +259,33 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
             </div>
           )}
 
-          {/* Other ports (inout or unspecified direction) */}
-          {otherPorts.length > 0 && (
+          {/* InOut ports */}
+          {inoutPorts.length > 0 && (
             <div>
-              {otherPorts.map(([k, v]) => (
-                <div key={k} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  gap: 6,
-                  marginBottom: 2,
-                  background: 'rgba(0,0,0,0.2)',
-                  borderRadius: 3,
-                  padding: '2px 6px'
-                }}>
+              {inoutPorts.map(([k, v]) => (
+                <div 
+                  key={k} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    gap: 6,
+                    marginBottom: 2,
+                    background: 'rgba(100,100,0,0.2)',
+                    borderRadius: 3,
+                    padding: '2px 6px',
+                    cursor: 'pointer'
+                  }}
+                  onDoubleClick={(e) => handlePortDoubleClick(e, k, 'inout')}
+                  title={`Double-click to edit: ${k}`}
+                >
+                  <span style={{ 
+                    fontSize: 8, 
+                    opacity: 0.8, 
+                    textTransform: 'uppercase',
+                    fontWeight: 600,
+                    minWidth: 24,
+                    color: '#ffe066'
+                  }}>IN/OUT</span>
                   <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
                   <span style={{ 
                     color: v.startsWith('{') ? '#80c0ff' : '#ffe080',

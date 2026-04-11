@@ -1,6 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { BUILTIN_NODES } from '../types/bt-constants';
-import type { BTNodeDefinition } from '../types/bt';
+import React, { useState, useEffect } from 'react';
 
 interface NodeEditModalProps {
   nodeId: string;
@@ -20,16 +18,6 @@ interface NodeEditModalProps {
     description?: string;
   }) => void;
   onClose: () => void;
-}
-
-function getNodeDef(nodeType: string): BTNodeDefinition | undefined {
-  return BUILTIN_NODES.find(n => n.type === nodeType);
-}
-
-function isNumericPort(name: string): boolean {
-  const n = name.toLowerCase();
-  return n.includes('count') || n.includes('num') || n.includes('msec') ||
-    n.includes('delay') || n.includes('timeout') || n.includes('attempt') || n.includes('cycle');
 }
 
 // Pre/post condition attribute keys
@@ -55,8 +43,6 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   description: initialDescription = '',
   availableTrees = [], onSave, onClose
 }) => {
-  const nodeDef = useMemo(() => getNodeDef(nodeType), [nodeType]);
-
   const isSubTree = nodeType === 'SubTree';
   const isLeaf = nodeCategory === 'Action' || nodeCategory === 'Condition';
 
@@ -65,9 +51,6 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const [subTreeTarget, setSubTreeTarget] = useState(isSubTree ? (nodeName ?? '') : '');
   const [autoRemap, setAutoRemap] = useState(ports['__autoremap'] === 'true' || ports['__autoremap'] === '1');
 
-  // ─── Port values state ─────────────────────────────────────────────────
-  const [portValues, setPortValues] = useState<Record<string, string>>({});
-
   // ─── Pre/Post conditions state ─────────────────────────────────────────
   const [preCond, setPreCond] = useState<Record<string, string>>({});
   const [postCond, setPostCond] = useState<Record<string, string>>({});
@@ -75,11 +58,6 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
   // ─── Initialize ────────────────────────────────────────────────────────
   useEffect(() => {
-    // Ports: filter out __autoremap from display
-    const filteredPorts = { ...ports };
-    delete filteredPorts['__autoremap'];
-    setPortValues(filteredPorts);
-
     setInstanceName(nodeName ?? '');
     setSubTreeTarget(isSubTree ? (nodeName ?? '') : '');
     setAutoRemap(ports['__autoremap'] === 'true' || ports['__autoremap'] === '1');
@@ -99,10 +77,6 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   }, [nodeId]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────
-  const handlePortChange = (name: string, value: string) => {
-    setPortValues(prev => ({ ...prev, [name]: value }));
-  };
-
   const handlePreChange = (key: string, value: string) => {
     setPreCond(prev => ({ ...prev, [key]: value }));
   };
@@ -112,11 +86,6 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   };
 
   const handleSave = () => {
-    const finalPorts = { ...portValues };
-    if (isSubTree) {
-      finalPorts['__autoremap'] = autoRemap ? 'true' : 'false';
-    }
-
     // Clean up empty pre/post conditions
     const cleanPre: Record<string, string> = {};
     PRE_KEYS.forEach(k => { if (preCond[k].trim()) cleanPre[k] = preCond[k].trim(); });
@@ -134,7 +103,7 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
     onSave({
       name,
-      ports: finalPorts,
+      ports, // Pass ports through unchanged
       preconditions: Object.keys(cleanPre).length > 0 ? cleanPre : undefined,
       postconditions: Object.keys(cleanPost).length > 0 ? cleanPost : undefined,
       description: description.trim() || undefined,
@@ -145,11 +114,6 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
   };
-
-  const defPorts = (nodeDef?.ports ?? []).filter((p: any) => p.name !== '__autoremap');
-
-  // Check if any section has content to show
-  const hasPortValues = defPorts.length > 0 || Object.keys(portValues).some(k => k !== '__autoremap');
 
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
@@ -240,46 +204,6 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
             </div>
           </div>
 
-          {/* ─── Port Values Section ─────────────────────────────────────── */}
-          {hasPortValues && (
-            <div className="edit-section">
-              <div className="edit-section-title">Port Values</div>
-              {defPorts.map((port: any) => (
-                <div key={port.name} className="port-row-edit">
-                  <div className="port-label">
-                    <span className="port-dir">[{port.direction}]</span>
-                    <span className="port-name">{port.name}</span>
-                    {port.description && (
-                      <span className="port-desc"> — {port.description}</span>
-                    )}
-                    {port.defaultValue && (
-                      <span className="form-hint"> default: {port.defaultValue}</span>
-                    )}
-                  </div>
-                  {isNumericPort(port.name) ? (
-                    <input
-                      type="number"
-                      value={portValues[port.name] ?? ''}
-                      onChange={(e) => handlePortChange(port.name, e.target.value)}
-                      placeholder={port.defaultValue ?? '0'}
-                      min={0}
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={portValues[port.name] ?? ''}
-                      onChange={(e) => handlePortChange(port.name, e.target.value)}
-                      placeholder={port.defaultValue ?? '{key}'}
-                    />
-                  )}
-                </div>
-              ))}
-              <span className="form-hint">
-                Use <code>{'{key}'}</code> for blackboard references
-              </span>
-            </div>
-          )}
-
           {/* ─── Pre-conditions Section ───────────────────────────────────── */}
           <div className="edit-section">
             <div className="edit-section-title">
@@ -287,32 +211,32 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
               <span className="section-hint">(evaluated before tick)</span>
             </div>
             {PRE_KEYS.map(key => (
-              <div key={key} className="condition-row">
-                <label className="condition-label">{PRE_LABELS[key]}</label>
+              <div key={key} className="form-group">
+                <label>{PRE_LABELS[key]}</label>
                 <input
                   type="text"
                   value={preCond[key] ?? ''}
                   onChange={(e) => handlePreChange(key, e.target.value)}
-                  placeholder={key === '_while' ? 'condition' : 'script expression'}
+                  placeholder={key === '_while' ? '{key} == value' : '{expression}'}
                 />
               </div>
             ))}
           </div>
 
-          {/* ─── Post-conditions Section ─────────────────────────────────── */}
+          {/* ─── Post-conditions Section ──────────────────────────────────── */}
           <div className="edit-section">
             <div className="edit-section-title">
               Post-conditions
-              <span className="section-hint">(evaluated after completion)</span>
+              <span className="section-hint">(script executed after tick)</span>
             </div>
             {POST_KEYS.map(key => (
-              <div key={key} className="condition-row">
-                <label className="condition-label">{POST_LABELS[key]}</label>
+              <div key={key} className="form-group">
+                <label>{POST_LABELS[key]}</label>
                 <input
                   type="text"
                   value={postCond[key] ?? ''}
                   onChange={(e) => handlePostChange(key, e.target.value)}
-                  placeholder="script expression"
+                  placeholder="{expression}"
                 />
               </div>
             ))}
@@ -322,8 +246,8 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
         {/* Footer */}
         <div className="modal-footer">
-          <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave}>Apply</button>
+          <button className="btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="btn-save" onClick={handleSave}>Save</button>
         </div>
       </div>
     </div>
