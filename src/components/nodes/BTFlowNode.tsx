@@ -64,6 +64,14 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
     }));
   };
 
+  // Handle port double-click to edit
+  const handlePortDoubleClick = (e: React.MouseEvent, portName: string, portDirection: string) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('bt-node-edit', {
+      detail: { nodeId, portName, portDirection }
+    }));
+  };
+
   // Calculate handle positions based on node category
   // ROOT: only output (source) handle at bottom
   // Leaf (Action/Condition): only input (target) handle at top
@@ -168,15 +176,21 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
           {inputPorts.length > 0 && (
             <div style={{ marginBottom: 4 }}>
               {inputPorts.map(([k, v]) => (
-                <div key={k} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  gap: 6,
-                  marginBottom: 2,
-                  background: 'rgba(0,0,0,0.2)',
-                  borderRadius: 3,
-                  padding: '2px 6px'
-                }}>
+                <div 
+                  key={k} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    gap: 6,
+                    marginBottom: 2,
+                    background: 'rgba(0,0,0,0.2)',
+                    borderRadius: 3,
+                    padding: '2px 6px',
+                    cursor: 'pointer'
+                  }}
+                  onDoubleClick={(e) => handlePortDoubleClick(e, k, 'input')}
+                  title={`Double-click to edit: ${k}`}
+                >
                   <span style={{ 
                     fontSize: 8, 
                     opacity: 0.6, 
@@ -200,15 +214,21 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
           {outputPorts.length > 0 && (
             <div style={{ marginBottom: 4 }}>
               {outputPorts.map(([k, v]) => (
-                <div key={k} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  gap: 6,
-                  marginBottom: 2,
-                  background: 'rgba(0,0,0,0.2)',
-                  borderRadius: 3,
-                  padding: '2px 6px'
-                }}>
+                <div 
+                  key={k} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    gap: 6,
+                    marginBottom: 2,
+                    background: 'rgba(0,0,0,0.2)',
+                    borderRadius: 3,
+                    padding: '2px 6px',
+                    cursor: 'pointer'
+                  }}
+                  onDoubleClick={(e) => handlePortDoubleClick(e, k, 'output')}
+                  title={`Double-click to edit: ${k}`}
+                >
                   <span style={{ 
                     fontSize: 8, 
                     opacity: 0.6, 
