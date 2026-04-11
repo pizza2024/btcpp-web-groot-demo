@@ -9,12 +9,7 @@ import {
   useEdgesState,
   BackgroundVariant,
 } from '@xyflow/react';
-import type {
-  Connection,
-  Node,
-  Edge,
-  ReactFlowInstance,
-} from '@xyflow/react';
+import type { Connection, Node, Edge, ReactFlowInstance } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { useBTStore } from '../store/btStore';
@@ -23,8 +18,9 @@ import { autoLayout } from '../utils/btLayout';
 import BTFlowNode from './nodes/BTFlowNode';
 import BTFlowEdge from './edges/BTFlowEdge';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
-import type { BTNodeDefinition, BTProject } from '../types/bt';
+import type { BTNodeDefinition, BTProject, BTNodeCategory } from '../types/bt';
 import { useContextMenu, type MenuConfig } from './ContextMenu';
+import NodePicker from './NodePicker';
 import NodeEditModal from './NodeEditModal';
 
 const nodeTypes = { btNode: BTFlowNode };
@@ -67,6 +63,16 @@ const BTCanvas: React.FC = () => {
 
   // Node edit modal
   const [editingNodeId, setEditingNodeId] = React.useState<string | null>(null);
+
+  // Incomplete connection picker (drag from handle to empty space)
+  const [pendingConnection, setPendingConnection] = React.useState<{
+    sourceNodeId: string;
+    sourceHandleId: string | null;
+    sourceHandleType: 'source' | 'target';
+    position: { x: number; y: number };
+  } | null>(null);
+
+  const [nodePickerPosition, setNodePickerPosition] = React.useState<{ x: number; y: number } | null>(null);
 
   // Track if we should force layout (tree switch or initial load)
   const forceLayoutRef = useRef(true);
@@ -131,6 +137,74 @@ const BTCanvas: React.FC = () => {
     );
   }, [selectedNodeId, setNodes]);
 
+  // Track source node when connection starts
+  const onConnectStart = useCallback(
+    (_: MouseEvent | TouchEvent, params: { nodeId: string | null; handleId: string | null; handleType: string | null }) => {
+      if (params.nodeId && (params.handleType === 'source' || params.handleType === 'target')) {
+        setPendingConnection({
+          sourceNodeId: params.nodeId,
+          sourceHandleId: params.handleId,
+          sourceHandleType: params.handleType as 'source' | 'target',
+          position: { x: 0, y: 0 },
+        });
+      }
+    },
+    []
+  );
+
+  // Handle picker selection (create node and connect)
+  const handlePickerSelect = useCallback(
+    (nodeType: string, category: BTNodeCategory) => {
+      if (!nodePickerPosition) return;
+
+      // Find the source node that was being connected from
+      // We need to get this from the pending connection state
+      // For now, we'll use the first selected node or find a better way
+      const sourceNodeId = pendingConnection?.sourceNodeId;
+      if (!sourceNodeId) {
+        setNodePickerPosition(null);
+        return;
+      }
+
+      // Create new node at picker position
+      const newNodeId = `n_${Math.random().toString(36).slice(2, 9)}`;
+      const colors = CATEGORY_COLORS[category] || CATEGORY_COLORS.Control;
+      const isLeaf = category === 'Action' || category === 'Condition';
+
+      const newNode: Node = {
+        id: newNodeId,
+        type: 'btFlow',
+        position: nodePickerPosition,
+        data: {
+          label: nodeType,
+          nodeType,
+          category,
+          colors,
+          ports: {},
+          childrenCount: isLeaf ? 0 : 1,
+        },
+      };
+
+      // Add new node and create edge from source to new node
+      setNodes((prev) => [...prev, newNode]);
+      setEdges((eds) => withSelectedEdge(
+        addEdge({
+          id: `e_${Math.random().toString(36).slice(2, 9)}`,
+          source: sourceNodeId,
+          target: newNodeId,
+          type: 'btEdge',
+          style: { stroke: '#6888aa', strokeWidth: 2 },
+        }, eds),
+        null,
+        deleteEdge
+      ));
+
+      setNodePickerPosition(null);
+      setPendingConnection(null);
+    },
+    [nodePickerPosition, pendingConnection, setNodes, setEdges, deleteEdge]
+  );
+
   const onConnect = useCallback(
     (params: Connection) => {
       setSelectedEdgeId(null);
@@ -141,6 +215,35 @@ const BTCanvas: React.FC = () => {
       ));
     },
     [deleteEdge, setEdges]
+  );
+
+  // Handle incomplete connection (drag ended without connecting to target)
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, connectionState: { to: unknown }) => {
+      // If connection was completed (to is not null), do nothing
+      // When dropped in empty space, 'to' will be null
+      if (connectionState.to !== null) {
+        setPendingConnection(null);
+        return;
+      }
+
+      // The connection is from source -> empty space, show model picker
+      const rfInstance = rfInstanceRef.current;
+      if (!rfInstance) {
+        setPendingConnection(null);
+        return;
+      }
+
+      // Get client coordinates from the event
+      const clientX = 'clientX' in event ? event.clientX : 0;
+      const clientY = 'clientY' in event ? event.clientY : 0;
+
+      // Convert client coordinates to flow coordinates
+      const position = rfInstance.screenToFlowPosition({ x: clientX, y: clientY });
+
+      setNodePickerPosition({ x: position.x, y: position.y });
+    },
+    []
   );
 
   const onNodeClick = useCallback(
@@ -409,6 +512,8 @@ const BTCanvas: React.FC = () => {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
@@ -474,6 +579,15 @@ const BTCanvas: React.FC = () => {
           />
         );
       })()}
+
+      {/* Node Picker (shown when dragging from handle to empty space) */}
+      {nodePickerPosition && (
+        <NodePicker
+          position={nodePickerPosition}
+          onSelect={handlePickerSelect}
+          onClose={() => setNodePickerPosition(null)}
+        />
+      )}
     </div>
   );
 };

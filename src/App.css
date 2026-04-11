@@ -288,6 +288,94 @@
   flex: 1;
 }
 
+/* ─── Node Picker (drag to create) ───────────────────────────────── */
+.node-picker {
+  background: #1a1a2e;
+  border: 1px solid #2a3a5a;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.node-picker-search {
+  padding: 8px;
+  border-bottom: 1px solid #2a3a5a;
+  background: #141428;
+}
+
+.node-picker-input {
+  width: 100%;
+  padding: 6px 10px;
+  background: #0d0d1a;
+  border: 1px solid #334;
+  border-radius: 4px;
+  color: #ccd;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.node-picker-input:focus {
+  outline: none;
+  border-color: #4a80d0;
+}
+
+.node-picker-input::placeholder {
+  color: #556;
+}
+
+.node-picker-list {
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.node-picker-category {
+  padding: 4px 0;
+}
+
+.node-picker-category-header {
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #668;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.node-picker-item {
+  padding: 6px 10px 6px 14px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background: 0.1s;
+}
+
+.node-picker-item:hover {
+  background: #2a3a5a;
+}
+
+.node-picker-item-type {
+  display: block;
+  font-size: 12px;
+  color: #ccd;
+  font-family: monospace;
+}
+
+.node-picker-item-desc {
+  display: block;
+  font-size: 10px;
+  color: #667;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-picker-empty {
+  padding: 20px;
+  text-align: center;
+  color: #667;
+  font-size: 12px;
+}
+
 /* ─── Modal ─────────────────────────────────────────────────────── */
 .modal-backdrop {
   position: fixed;
