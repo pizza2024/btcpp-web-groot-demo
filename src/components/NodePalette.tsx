@@ -9,9 +9,18 @@ const CATEGORIES: BTNodeCategory[] = ['Action', 'Condition', 'Control', 'Decorat
 const NodePalette: React.FC = () => {
   const { project, addNodeModel, updateNodeModel, deleteNodeModel } = useBTStore();
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(CATEGORIES));
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Model modal state: null = closed, 'create' = create new, BTNodeDefinition = edit existing
   const [modelModal, setModelModal] = useState<{ mode: 'create'; defaultCategory: BTNodeCategory } | { mode: 'edit'; def: BTNodeDefinition } | null>(null);
+
+  // Filter nodes by search query
+  const filteredNodes = searchQuery.trim()
+    ? project.nodeModels.filter((m) =>
+        m.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : null; // null means no search, show all by category
 
   const toggleCat = (cat: string) => {
     setExpandedCats((prev) => {
@@ -49,44 +58,89 @@ const NodePalette: React.FC = () => {
     <div className="panel node-palette">
       <div className="panel-header">Models Palette</div>
 
-      {CATEGORIES.map((cat) => {
-        const nodes = byCategory(cat);
-        const colors = CATEGORY_COLORS[cat];
-        const isExpanded = expandedCats.has(cat);
+      {/* Search box */}
+      <div style={{ padding: '8px 8px 4px 8px' }}>
+        <input
+          type="text"
+          placeholder="Search models..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '6px 10px',
+            background: '#0d0d1a',
+            border: '1px solid #334',
+            borderRadius: 4,
+            color: '#ccd',
+            fontSize: 12,
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
 
-        return (
-          <div key={cat} style={{ marginBottom: 4 }}>
-            <button
-              className="cat-header"
-              style={{ borderColor: colors.border, color: colors.text }}
-              onClick={() => toggleCat(cat)}
-            >
-              <span>{isExpanded ? '▼' : '▶'} {cat}</span>
-              <span style={{ fontSize: 10, opacity: 0.7 }}>{nodes.length}</span>
-            </button>
+      {/* Search results or category list */}
+      {filteredNodes !== null ? (
+        <div style={{ padding: '4px 4px 0 4px' }}>
+          {filteredNodes.length > 0 ? (
+            filteredNodes.map((node) => {
+              const colors = CATEGORY_COLORS[node.category];
+              return (
+                <PaletteItem
+                  key={node.type}
+                  def={node}
+                  colors={colors}
+                  onDragStart={onDragStart}
+                  onEdit={!node.builtin ? () => setModelModal({ mode: 'edit', def: node }) : undefined}
+                  onDelete={!node.builtin ? deleteNodeModel : undefined}
+                />
+              );
+            })
+          ) : (
+            <div style={{ fontSize: 11, color: '#556', padding: '8px' }}>
+              No models match &quot;{searchQuery}&quot;
+            </div>
+          )}
+        </div>
+      ) : (
+        CATEGORIES.map((cat) => {
+          const nodes = byCategory(cat);
+          const colors = CATEGORY_COLORS[cat];
+          const isExpanded = expandedCats.has(cat);
 
-            {isExpanded && (
-              <div style={{ paddingLeft: 4 }}>
-                {nodes.map((node) => (
-                  <PaletteItem
-                    key={node.type}
-                    def={node}
-                    colors={colors}
-                    onDragStart={onDragStart}
-                    onEdit={!node.builtin ? () => setModelModal({ mode: 'edit', def: node }) : undefined}
-                    onDelete={!node.builtin ? deleteNodeModel : undefined}
-                  />
-                ))}
-                {nodes.length === 0 && (
-                  <div style={{ fontSize: 11, color: '#556', padding: '4px 8px' }}>
-                    No nodes
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
+          return (
+            <div key={cat} style={{ marginBottom: 4 }}>
+              <button
+                className="cat-header"
+                style={{ borderColor: colors.border, color: colors.text }}
+                onClick={() => toggleCat(cat)}
+              >
+                <span>{isExpanded ? '▼' : '▶'} {cat}</span>
+                <span style={{ fontSize: 10, opacity: 0.7 }}>{nodes.length}</span>
+              </button>
+
+              {isExpanded && (
+                <div style={{ paddingLeft: 4 }}>
+                  {nodes.map((node) => (
+                    <PaletteItem
+                      key={node.type}
+                      def={node}
+                      colors={colors}
+                      onDragStart={onDragStart}
+                      onEdit={!node.builtin ? () => setModelModal({ mode: 'edit', def: node }) : undefined}
+                      onDelete={!node.builtin ? deleteNodeModel : undefined}
+                    />
+                  ))}
+                  {nodes.length === 0 && (
+                    <div style={{ fontSize: 11, color: '#556', padding: '4px 8px' }}>
+                      No nodes
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
 
       {/* Add custom node button */}
       <div style={{ marginTop: 12, borderTop: '1px solid #334', paddingTop: 8 }}>
