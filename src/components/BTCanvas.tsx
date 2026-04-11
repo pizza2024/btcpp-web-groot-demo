@@ -207,8 +207,51 @@ const BTCanvas: React.FC = () => {
     [nodePickerPosition, pendingConnection, setNodes, setEdges, deleteEdge]
   );
 
+  // Validate connection based on BT rules
+  const isValidConnection = useCallback(
+    (sourceNode: Node, existingEdges: Edge[]): boolean => {
+      const sourceCategory = (sourceNode.data as { category?: string }).category;
+
+      // Leaf nodes (Action/Condition) cannot have outgoing connections
+      if (sourceCategory === 'Action' || sourceCategory === 'Condition') {
+        return false;
+      }
+
+      // ROOT can only have ONE child
+      if (sourceCategory === 'ROOT') {
+        const existingEdgesFromRoot = existingEdges.filter((e) => e.source === sourceNode.id);
+        if (existingEdgesFromRoot.length > 0) {
+          return false; // ROOT already has a child
+        }
+      }
+
+      // Decorator can only have ONE child
+      if (sourceCategory === 'Decorator') {
+        const existingEdgesFromDecorator = existingEdges.filter((e) => e.source === sourceNode.id);
+        if (existingEdgesFromDecorator.length > 0) {
+          return false; // Decorator already has a child
+        }
+      }
+
+      // Control nodes and SubTree can have multiple children - always valid
+      return true;
+    },
+    []
+  );
+
   const onConnect = useCallback(
     (params: Connection) => {
+      // Validate connection
+      const sourceNode = nodes.find((n) => n.id === params.source);
+      
+      if (!sourceNode) {
+        return; // Invalid source node
+      }
+
+      if (!isValidConnection(sourceNode, edges)) {
+        return; // Connection not allowed by BT rules
+      }
+
       setSelectedEdgeId(null);
       setEdges((eds) => withSelectedEdge(
         addEdge({ ...params, type: 'btEdge', style: { stroke: '#6888aa', strokeWidth: 2 } }, eds),
@@ -216,7 +259,7 @@ const BTCanvas: React.FC = () => {
         deleteEdge
       ));
     },
-    [deleteEdge, setEdges]
+    [deleteEdge, setEdges, nodes, edges, isValidConnection]
   );
 
   // Handle incomplete connection (drag ended without connecting to target)
@@ -254,6 +297,7 @@ const BTCanvas: React.FC = () => {
       setSelectedEdgeId(null);
       selectNode(node.id);
       if (menuState.show) hideMenu();
+      setNodePickerPosition(null);
     },
     [selectNode, menuState.show, hideMenu]
   );
@@ -262,6 +306,7 @@ const BTCanvas: React.FC = () => {
     setSelectedEdgeId(null);
     selectNode(null);
     if (menuState.show) hideMenu();
+    setNodePickerPosition(null);
   }, [selectNode, menuState.show, hideMenu]);
 
   const onEdgeClick = useCallback(
@@ -270,6 +315,7 @@ const BTCanvas: React.FC = () => {
       selectNode(null);
       setSelectedEdgeId(edge.id);
       if (menuState.show) hideMenu();
+      setNodePickerPosition(null);
     },
     [selectNode, menuState.show, hideMenu]
   );
