@@ -325,6 +325,56 @@ export function isValidBlackboardKey(key: string): boolean {
   return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key);
 }
 
+// ─── Port Type Validation ─────────────────────────────────────────────────────
+
+export interface PortInfo {
+  name: string;
+  direction: 'input' | 'output' | 'inout';
+  type?: string; // Optional type constraint
+}
+
+/**
+ * Check if two ports are type-compatible for connection
+ * Returns { valid: boolean, warning?: string }
+ */
+export function validatePortConnection(
+  sourcePort: PortInfo,
+  targetPort: PortInfo
+): { valid: boolean; warning?: string } {
+  // Input ports should connect FROM output ports
+  if (sourcePort.direction === 'input') {
+    return { valid: false, warning: 'Source port is an input' };
+  }
+
+  // Output ports should connect TO input ports
+  if (targetPort.direction === 'output') {
+    return { valid: false, warning: 'Target port is an output' };
+  }
+
+  // Check type compatibility if both have types
+  if (sourcePort.type && targetPort.type && sourcePort.type !== targetPort.type) {
+    // Same type is compatible, different types show warning but allow
+    if (sourcePort.type === 'any' || targetPort.type === 'any') {
+      return { valid: true };
+    }
+    return { valid: true, warning: `Type mismatch: ${sourcePort.type} → ${targetPort.type}` };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Get direction label for port
+ */
+export function getPortDirectionLabel(direction: 'input' | 'output' | 'inout'): string {
+  switch (direction) {
+    case 'input': return '←';
+    case 'output': return '→';
+    case 'inout': return '↔';
+    default: return '?';
+  }
+}
+
 /**
  * Check if a string is a blackboard reference (e.g., "{goal}")
  */

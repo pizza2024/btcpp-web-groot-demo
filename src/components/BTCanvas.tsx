@@ -16,16 +16,69 @@ import html2canvas from 'html2canvas';
 import { useBTStore } from '../store/btStore';
 import { treeToFlow, flowToTree, isSameTreeStructure } from '../utils/btFlow';
 import { autoLayout } from '../utils/btLayout';
+import { validatePortConnection } from '../utils/btXml';
 import BTFlowNode from './nodes/BTFlowNode';
 import BTFlowEdge from './edges/BTFlowEdge';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
-import type { BTNodeDefinition, BTProject, BTNodeCategory } from '../types/bt';
+import type { BTNodeDefinition, BTProject, BTNodeCategory, BTPort } from '../types/bt';
 import { useContextMenu, type MenuConfig } from './ContextMenu';
 import NodePicker from './NodePicker';
 import NodeEditModal from './NodeEditModal';
 
 const nodeTypes = { btNode: BTFlowNode };
 const edgeTypes = { btEdge: BTFlowEdge };
+
+/**
+ * Get port definition for a specific port on a node type.
+ * Looks in both BUILTIN_NODES and nodeModels.
+ */
+function getPortDefinition(
+  nodeType: string,
+  portName: string,
+  nodeModels: BTNodeDefinition[]
+): BTPort | undefined {
+  const builtin = BUILTIN_NODES.find((n) => n.type === nodeType);
+  const model = nodeModels.find((n) => n.type === nodeType);
+  const ports = builtin?.ports ?? model?.ports;
+  return ports?.find((p) => p.name === portName);
+}
+
+/**
+ * Determine the implied port direction based on handle type and node category.
+ * For built-in nodes without explicit port definitions, we infer direction.
+ */
+function inferPortDirection(
+  handleType: 'source' | 'target' | null,
+  nodeType: string,
+  nodeModels: BTNodeDefinition[]
+): 'input' | 'output' | 'inout' | undefined {
+  // If we have explicit port info from node model, use it
+  const portDef = handleType ? getPortDefinition(nodeType, handleType, nodeModels) : undefined;
+  if (portDef) return portDef.direction;
+
+  // Fall back to inferring from handle type
+  if (handleType === 'target') return 'input';
+  if (handleType === 'source') return 'output';
+  return undefined;
+}
+
+/**
+ * Check if a target node is a leaf node (Action/Condition) that can't accept children.
+ * Returns a warning message if invalid.
+ */
+function checkLeafTargetConnection(
+  targetNodeId: string,
+  nodes: Node[]
+): string | undefined {
+  const target = nodes.find((n) => n.id === targetNodeId);
+  if (!target) return undefined;
+  const data = target.data as { category?: string };
+  const category = data?.category;
+  if (category === 'Action' || category === 'Condition') {
+    return 'Leaf nodes (Action/Condition) cannot have children';
+  }
+  return undefined;
+}
 
 function buildFlowNodes(
   treeId: string,
@@ -255,7 +308,8 @@ const BTCanvas: React.FC = () => {
     (params: Connection) => {
       // Validate connection
       const sourceNode = nodes.find((n) => n.id === params.source);
-      
+      const targetNode = nodes.find((n) => n.id === params.target);
+
       if (!sourceNode) {
         return; // Invalid source node
       }
@@ -264,15 +318,66 @@ const BTCanvas: React.FC = () => {
         return; // Connection not allowed by BT rules
       }
 
+      // Determine type warning for the connection
+      let typeWarning: string | undefined;
+      const { nodeModels } = project;
+
+      // Check if target is a leaf node (can't accept children)
+      if (targetNode) {
+        typeWarning = checkLeafTargetConnection(params.target!, nodes);
+      }
+
+      // If no leaf error, check port type compatibility
+      if (!typeWarning && params.sourceHandleId && params.targetHandleId) {
+        const sourceData = sourceNode.data as { nodeType: string };
+        const targetData = targetNode?.data as { nodeType: string };
+
+        const sourceDirection = inferPortDirection(
+          params.sourceHandleId as 'source' | 'target',
+          sourceData.nodeType,
+          nodeModels
+        );
+        const targetDirection = inferPortDirection(
+          params.targetHandleId as 'source' | 'target',
+          targetData?.nodeType ?? '',
+          nodeModels
+        );
+
+        if (sourceDirection && targetDirection) {
+          const sourcePortDef = getPortDefinition(sourceData.nodeType, params.sourceHandleId, nodeModels);
+          const targetPortDef = getPortDefinition(targetData?.nodeType ?? '', params.targetHandleId, nodeModels);
+
+          const result = validatePortConnection(
+            { name: params.sourceHandleId, direction: sourceDirection, type: sourcePortDef?.portType },
+            { name: params.targetHandleId, direction: targetDirection, type: targetPortDef?.portType }
+          );
+          typeWarning = result.warning;
+        }
+      }
+
       useBTStore.getState().pushHistory();
       setSelectedEdgeId(null);
+
+      // Build edge data with type warning info
+      const edgeData: Record<string, unknown> = {
+        onDelete: deleteEdge,
+        sourcePort: params.sourceHandleId ?? undefined,
+        targetPort: params.targetHandleId ?? undefined,
+        typeWarning,
+      };
+
       setEdges((eds) => withSelectedEdge(
-        addEdge({ ...params, type: 'btEdge', style: { stroke: '#6888aa', strokeWidth: 2 } }, eds),
+        addEdge({
+          ...params,
+          type: 'btEdge',
+          style: { stroke: '#6888aa', strokeWidth: 2 },
+          data: edgeData,
+        }, eds),
         null,
         deleteEdge
       ));
     },
-    [deleteEdge, setEdges, nodes, edges, isValidConnection]
+    [deleteEdge, setEdges, nodes, edges, isValidConnection, project.nodeModels]
   );
 
   // Handle incomplete connection (drag ended without connecting to target)
@@ -848,16 +953,30 @@ function withSelectedEdge(
   selectedEdgeId: string | null,
   deleteEdge: (edgeId: string) => void
 ): Edge[] {
-  return edges.map((edge) => ({
-    ...edge,
-    type: 'btEdge',
-    selected: edge.id === selectedEdgeId,
-    style: {
-      stroke: edge.id === selectedEdgeId ? '#c8e0ff' : '#6888aa',
-      strokeWidth: edge.id === selectedEdgeId ? 3 : 2,
-    },
-    data: {
-      onDelete: deleteEdge,
-    },
-  }));
+  return edges.map((edge) => {
+    // Preserve existing edge data (typeWarning, sourcePort, targetPort, invalid)
+    const existingData = edge.data as Record<string, unknown> | undefined;
+    const isWarning = !!existingData?.typeWarning;
+    const isInvalid = !!existingData?.invalid;
+
+    return {
+      ...edge,
+      type: 'btEdge',
+      selected: edge.id === selectedEdgeId,
+      style: {
+        stroke: edge.id === selectedEdgeId
+          ? '#c8e0ff'
+          : isInvalid
+          ? '#e04040'
+          : isWarning
+          ? '#f0a020'
+          : '#6888aa',
+        strokeWidth: edge.id === selectedEdgeId ? 3 : 2,
+      },
+      data: {
+        ...existingData,
+        onDelete: deleteEdge,
+      },
+    };
+  });
 }

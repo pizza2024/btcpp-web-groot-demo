@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultProject, parseXML, SAMPLE_XML, serializeXML, isBlackboardRef, extractBlackboardKey, parseBlackboardExpression, isValidBlackboardKey } from './btXml';
+import { defaultProject, parseXML, SAMPLE_XML, serializeXML, isBlackboardRef, extractBlackboardKey, parseBlackboardExpression, isValidBlackboardKey, validatePortConnection, getPortDirectionLabel } from './btXml';
 
 describe('parseXML', () => {
   it('parses sample XML and extracts trees and main tree id', () => {
@@ -115,6 +115,41 @@ describe('Blackboard Expression Utilities', () => {
       expect(isValidBlackboardKey('123var')).toBe(false);
       expect(isValidBlackboardKey('my-var')).toBe(false);
       expect(isValidBlackboardKey('')).toBe(false);
+    });
+  });
+
+  describe('Port Type Validation', () => {
+    it('validates output to input connection', () => {
+      const result = validatePortConnection(
+        { name: 'output', direction: 'output', type: 'int' },
+        { name: 'input', direction: 'input', type: 'int' }
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('rejects output to output connection', () => {
+      const result = validatePortConnection(
+        { name: 'out1', direction: 'output' },
+        { name: 'out2', direction: 'output' }
+      );
+      expect(result.valid).toBe(false);
+    });
+
+    it('rejects input to input connection', () => {
+      const result = validatePortConnection(
+        { name: 'in1', direction: 'input' },
+        { name: 'in2', direction: 'input' }
+      );
+      expect(result.valid).toBe(false);
+    });
+
+    it('shows warning for type mismatch', () => {
+      const result = validatePortConnection(
+        { name: 'out', direction: 'output', type: 'int' },
+        { name: 'in', direction: 'input', type: 'string' }
+      );
+      expect(result.valid).toBe(true);
+      expect(result.warning).toContain('Type mismatch');
     });
   });
 });
