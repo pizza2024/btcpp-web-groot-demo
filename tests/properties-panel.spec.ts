@@ -87,4 +87,75 @@ test.describe('Properties Panel', () => {
       await expect(page.locator('.node-edit-modal, [role="dialog"]')).toBeVisible();
     }
   });
+
+  test('Properties面板显示Pre-conditions和Post-conditions区域', async ({ page }) => {
+    await page.goto('/');
+    await loadSampleTree(page);
+
+    // Select a node
+    const firstNode = page.locator('.react-flow__node').first();
+    await firstNode.click();
+    await page.waitForTimeout(300);
+
+    // Verify properties panel shows preconditions section
+    const panel = page.locator('.properties-panel');
+    await expect(panel).toContainText(/pre-conditions/i);
+    await expect(panel).toContainText(/post-conditions/i);
+  });
+
+  test('Properties面板Pre-conditions区域包含所有字段', async ({ page }) => {
+    await page.goto('/');
+    await loadSampleTree(page);
+
+    // Select a node
+    const firstNode = page.locator('.react-flow__node').first();
+    await firstNode.click();
+    await page.waitForTimeout(300);
+
+    // Verify all precondition fields are present
+    const panel = page.locator('.properties-panel');
+    await expect(panel).toContainText('Failure if');
+    await expect(panel).toContainText('Success if');
+    await expect(panel).toContainText('Skip if');
+    await expect(panel).toContainText('While (guard)');
+  });
+
+  test('Properties面板Post-conditions区域包含所有字段', async ({ page }) => {
+    await page.goto('/');
+    await loadSampleTree(page);
+
+    // Select a node
+    const firstNode = page.locator('.react-flow__node').first();
+    await firstNode.click();
+    await page.waitForTimeout(300);
+
+    // Verify all postcondition fields are present
+    const panel = page.locator('.properties-panel');
+    await expect(panel).toContainText('On Success');
+    await expect(panel).toContainText('On Failure');
+    await expect(panel).toContainText('On Halted');
+    await expect(panel).toContainText('Post (any)');
+  });
+
+  test('编辑Pre-condition后Save按钮可用', async ({ page }) => {
+    await page.goto('/');
+    await loadSampleTree(page);
+
+    // Select a node
+    const firstNode = page.locator('.react-flow__node').first();
+    await firstNode.click();
+    await page.waitForTimeout(300);
+
+    // Find the "Failure if" input in preconditions section and type
+    const panel = page.locator('.properties-panel');
+    const failureIfInput = panel.locator('input[placeholder*="expression"], input[placeholder*="Failure"]').first();
+    if (await failureIfInput.count() > 0) {
+      await failureIfInput.fill('{health < 0}');
+      await page.waitForTimeout(200);
+
+      // Click Save in the preconditions section (first Save button after preconditions)
+      const saveBtn = panel.getByRole('button', { name: /save/i });
+      await expect(saveBtn.first()).toBeVisible();
+    }
+  });
 });

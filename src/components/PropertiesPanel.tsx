@@ -4,8 +4,26 @@ import type { BTNodeDefinition } from '../types/bt';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
 import type { Node } from '@xyflow/react';
 
+// Pre/post condition attribute keys (matching NodeEditModal)
+const PRE_KEYS = ['_failureIf', '_successIf', '_skipIf', '_while'] as const;
+const POST_KEYS = ['_onSuccess', '_onFailure', '_onHalted', '_post'] as const;
+
+const PRE_LABELS: Record<string, string> = {
+  _failureIf: 'Failure if',
+  _successIf: 'Success if',
+  _skipIf: 'Skip if',
+  _while: 'While (guard)',
+};
+
+const POST_LABELS: Record<string, string> = {
+  _onSuccess: 'On Success',
+  _onFailure: 'On Failure',
+  _onHalted: 'On Halted',
+  _post: 'Post (any)',
+};
+
 const PropertiesPanel: React.FC = () => {
-  const { project, activeTreeId, selectedNodeId, updateNodePorts, updateNodeName, localNodes, setLocalCanvas } = useBTStore();
+  const { project, activeTreeId, selectedNodeId, updateNodePorts, updateNodeName, updateNodeConditions, localNodes, setLocalCanvas } = useBTStore();
 
   // Use refs to always get current values in callbacks (avoid stale closure)
   const selectedNodeIdRef = useRef(selectedNodeId);
@@ -28,12 +46,16 @@ const PropertiesPanel: React.FC = () => {
         label: string;
         ports?: Record<string, string>;
         category?: string;
+        preconditions?: Record<string, string>;
+        postconditions?: Record<string, string>;
       };
       btNode = {
         id: localNode.id,
         type: data.nodeType,
         name: data.label !== data.nodeType ? data.label : undefined,
         ports: (data.ports as Record<string, string>) ?? {},
+        preconditions: data.preconditions,
+        postconditions: data.postconditions,
         children: [],
       };
     }
@@ -67,6 +89,22 @@ const PropertiesPanel: React.FC = () => {
   useEffect(() => {
     setLocalSubTreeId(btNode?.name ?? '');
   }, [nodeKey, btNode?.name]);
+
+  // Local state for preconditions
+  const [localPreconditions, setLocalPreconditions] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const initPre: Record<string, string> = {};
+    PRE_KEYS.forEach(k => { initPre[k] = btNode?.preconditions?.[k] ?? ''; });
+    setLocalPreconditions(initPre);
+  }, [nodeKey, btNode?.preconditions]);
+
+  // Local state for postconditions
+  const [localPostconditions, setLocalPostconditions] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const initPost: Record<string, string> = {};
+    POST_KEYS.forEach(k => { initPost[k] = btNode?.postconditions?.[k] ?? ''; });
+    setLocalPostconditions(initPost);
+  }, [nodeKey, btNode?.postconditions]);
 
   const allPorts = builtinDef?.ports ?? nodeDef?.ports ?? [];
   const isLeaf = nodeCategory === 'Action' || nodeCategory === 'Condition';
@@ -141,6 +179,50 @@ const PropertiesPanel: React.FC = () => {
     }
     window.dispatchEvent(new Event('bt-nodes-updated'));
   }, [btNode, localSubTreeId, updateNodeName, setLocalCanvas, project.trees, activeTreeId]);
+
+  // Save handler for pre/post conditions
+  const handleSaveConditions = useCallback(() => {
+    if (!btNode) return;
+    const { localEdges } = useBTStore.getState();
+    const currentLocalNodes = localNodesRef.current;
+
+    // Clean up empty conditions
+    const cleanPre: Record<string, string> = {};
+    PRE_KEYS.forEach(k => { if (localPreconditions[k]?.trim()) cleanPre[k] = localPreconditions[k].trim(); });
+
+    const cleanPost: Record<string, string> = {};
+    POST_KEYS.forEach(k => { if (localPostconditions[k]?.trim()) cleanPost[k] = localPostconditions[k].trim(); });
+
+    // Build updated flow nodes with new conditions merged into data
+    const updated = currentLocalNodes.map((n: Node) => {
+      if (n.id !== btNode.id) return n;
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          preconditions: Object.keys(cleanPre).length > 0 ? cleanPre : undefined,
+          postconditions: Object.keys(cleanPost).length > 0 ? cleanPost : undefined,
+        },
+      };
+    });
+
+    // Check if node exists in the tree
+    const tree = project.trees.find((t) => t.id === activeTreeId);
+    const nodeInTree = tree ? findNode(tree.root, btNode.id) : null;
+    if (nodeInTree) {
+      // Node is in tree - update tree and localNodes
+      updateNodeConditions(
+        btNode.id,
+        Object.keys(cleanPre).length > 0 ? cleanPre : undefined,
+        Object.keys(cleanPost).length > 0 ? cleanPost : undefined
+      );
+      setLocalCanvas(updated, localEdges);
+    } else {
+      // Node only in localNodes (not yet synced to tree) - only update localNodes
+      setLocalCanvas(updated, localEdges);
+    }
+    window.dispatchEvent(new Event('bt-nodes-updated'));
+  }, [btNode, localPreconditions, localPostconditions, updateNodeConditions, setLocalCanvas, project.trees, activeTreeId]);
 
   const updatePort = (name: string, value: string) => {
     setLocalPorts((prev) => ({ ...prev, [name]: value }));
@@ -255,6 +337,54 @@ const PropertiesPanel: React.FC = () => {
           </div>
         </Section>
       )}
+
+      {/* Pre-conditions Section */}
+      <Section title="Pre-conditions">
+        <div style={{ fontSize: 10, color: '#556', marginBottom: 6 }}>
+          Evaluated before tick
+        </div>
+        {PRE_KEYS.map(key => (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <label style={{ fontSize: 11, color: '#8899bb', minWidth: 90, flexShrink: 0 }}>
+              {PRE_LABELS[key]}
+            </label>
+            <input
+              type="text"
+              value={localPreconditions[key] ?? ''}
+              onChange={(e) => setLocalPreconditions(prev => ({ ...prev, [key]: e.target.value }))}
+              placeholder={key === '_while' ? '{key} == value' : '{expression}'}
+              style={inputStyle}
+            />
+          </div>
+        ))}
+        <button className="btn-primary" onClick={handleSaveConditions} style={{ marginTop: 4 }}>
+          Save
+        </button>
+      </Section>
+
+      {/* Post-conditions Section */}
+      <Section title="Post-conditions">
+        <div style={{ fontSize: 10, color: '#556', marginBottom: 6 }}>
+          Script executed after tick
+        </div>
+        {POST_KEYS.map(key => (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <label style={{ fontSize: 11, color: '#8899bb', minWidth: 90, flexShrink: 0 }}>
+              {POST_LABELS[key]}
+            </label>
+            <input
+              type="text"
+              value={localPostconditions[key] ?? ''}
+              onChange={(e) => setLocalPostconditions(prev => ({ ...prev, [key]: e.target.value }))}
+              placeholder="{expression}"
+              style={inputStyle}
+            />
+          </div>
+        ))}
+        <button className="btn-primary" onClick={handleSaveConditions} style={{ marginTop: 4 }}>
+          Save
+        </button>
+      </Section>
 
       {/* Node ID */}
       <div style={{ fontSize: 10, color: '#445', marginTop: 12 }}>ID: {btNode.id}</div>
