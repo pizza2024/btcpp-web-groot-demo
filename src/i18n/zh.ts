@@ -25,18 +25,29 @@ const zh = {
   },
   // Properties panel
   properties: {
+    panel: '属性',
     name: '名称',
     ports: '端口',
     parameters: '参数',
     preconditions: '前置条件',
     postconditions: '后置条件',
     apply: '应用',
+    save: '保存',
     cancel: '取消',
     nodeType: '节点类型',
     category: '类别',
     description: '描述',
     required: '必填',
     optional: '可选',
+    selectNode: '在画布上选择一个节点来查看其属性',
+    optionalAlias: '可选别名',
+    subtreeTarget: '子树目标',
+    selectTree: '-- 选择树 --',
+    availableTrees: '可用树: {{trees}}',
+    portValues: '端口值',
+    portDescription: '使用黑板引用 {key}',
+    preconditionsDescription: 'tick 前求值',
+    postconditionsDescription: 'tick 后执行脚本',
   },
   // Node edit modal
   nodeEdit: {
@@ -56,14 +67,14 @@ const zh = {
   },
   // Precondition/Postcondition keys
   conditions: {
-    failureIf: '_failureIf',
-    successIf: '_successIf',
-    skipIf: '_skipIf',
-    while: '_while',
-    onSuccess: '_onSuccess',
-    onFailure: '_onFailure',
-    onHalted: '_onHalted',
-    post: '_post',
+    failureIf: '失败条件',
+    successIf: '成功条件',
+    skipIf: '跳过条件',
+    while: '当条件',
+    onSuccess: '成功后',
+    onFailure: '失败后',
+    onHalted: '中止后',
+    post: '后置(任意)',
   },
   // Toast messages
   toast: {
@@ -113,9 +124,17 @@ const zh = {
     treeLabel: '树',
     mainTree: '主树',
   },
+  // Tree manager
+  treeManager: {
+    panel: '行为树',
+    delete: '删除',
+    newTreePlaceholder: '新树名称',
+  },
   // Node palette
   palette: {
     searchPlaceholder: '搜索模型...',
+    searchNodesPlaceholder: '搜索节点...',
+    noNodesFound: '未找到节点',
     categories: {
       actions: '动作',
       conditions: '条件',

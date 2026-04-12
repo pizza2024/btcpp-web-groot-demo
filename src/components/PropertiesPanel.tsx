@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBTStore } from '../store/btStore';
 import type { BTNodeDefinition } from '../types/bt';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
@@ -8,21 +9,23 @@ import type { Node } from '@xyflow/react';
 const PRE_KEYS = ['_failureIf', '_successIf', '_skipIf', '_while'] as const;
 const POST_KEYS = ['_onSuccess', '_onFailure', '_onHalted', '_post'] as const;
 
-const PRE_LABELS: Record<string, string> = {
-  _failureIf: 'Failure if',
-  _successIf: 'Success if',
-  _skipIf: 'Skip if',
-  _while: 'While (guard)',
+// Map internal condition keys to i18n keys (strip leading underscore)
+const PRE_I18N_KEYS: Record<string, string> = {
+  _failureIf: 'failureIf',
+  _successIf: 'successIf',
+  _skipIf: 'skipIf',
+  _while: 'while',
 };
 
-const POST_LABELS: Record<string, string> = {
-  _onSuccess: 'On Success',
-  _onFailure: 'On Failure',
-  _onHalted: 'On Halted',
-  _post: 'Post (any)',
+const POST_I18N_KEYS: Record<string, string> = {
+  _onSuccess: 'onSuccess',
+  _onFailure: 'onFailure',
+  _onHalted: 'onHalted',
+  _post: 'post',
 };
 
 const PropertiesPanel: React.FC = () => {
+  const { t } = useTranslation();
   const { project, activeTreeId, selectedNodeId, updateNodePorts, updateNodeName, updateNodeConditions, localNodes, setLocalCanvas } = useBTStore();
 
   // Use refs to always get current values in callbacks (avoid stale closure)
@@ -231,9 +234,9 @@ const PropertiesPanel: React.FC = () => {
   if (!btNode) {
     return (
       <div className="panel properties-panel">
-        <div className="panel-header">Properties</div>
+        <div className="panel-header">{t('properties.panel')}</div>
         <div style={{ color: '#667', padding: 12, fontSize: 12 }}>
-          Select a node on the canvas to view its properties.
+          {t('properties.selectNode')}
         </div>
       </div>
     );
@@ -241,7 +244,7 @@ const PropertiesPanel: React.FC = () => {
 
   return (
     <div className="panel properties-panel">
-      <div className="panel-header">Properties</div>
+      <div className="panel-header">{t('properties.panel')}</div>
 
       {/* Node identity */}
       <div
@@ -266,17 +269,17 @@ const PropertiesPanel: React.FC = () => {
 
       {/* Node Name (for Control/Decorator/SubTree) */}
       {(builtinDef || isSubTree) && !isLeaf && (
-        <Section title="Name">
+        <Section title={t('properties.name')}>
           <div style={{ display: 'flex', gap: 6 }}>
             <input
               value={localName}
               onChange={(e) => setLocalName(e.target.value)}
-              placeholder="optional alias"
+              placeholder={t('properties.optionalAlias')}
               style={inputStyle}
             />
             {(builtinDef || isSubTree) && (
               <button className="btn-primary" onClick={handleSaveName} style={{ flexShrink: 0 }}>
-                Save
+                {t('properties.save')}
               </button>
             )}
           </div>
@@ -285,35 +288,35 @@ const PropertiesPanel: React.FC = () => {
 
       {/* SubTree Target */}
       {isSubTree && (
-        <Section title="SubTree Target">
+        <Section title={t('properties.subtreeTarget')}>
           <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
             <select
               value={localSubTreeId}
               onChange={(e) => setLocalSubTreeId(e.target.value)}
               style={{ ...inputStyle, flex: 1 }}
             >
-              <option value="">-- Select Tree --</option>
+              <option value="">{t('properties.selectTree')}</option>
               {project.trees
-                .filter((t) => t.id !== activeTreeId)
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.id}
+                .filter((tree) => tree.id !== activeTreeId)
+                .map((tree) => (
+                  <option key={tree.id} value={tree.id}>
+                    {tree.id}
                   </option>
                 ))}
             </select>
             <button className="btn-primary" onClick={handleSaveSubTree} style={{ flexShrink: 0 }}>
-              Save
+              {t('properties.save')}
             </button>
           </div>
           <div style={{ fontSize: 10, color: '#556' }}>
-            Available trees: {project.trees.map((t) => t.id).join(', ')}
+            {t('properties.availableTrees', { trees: project.trees.map((tree) => tree.id).join(', ') })}
           </div>
         </Section>
       )}
 
       {/* Port Values */}
       {allPorts.length > 0 && (
-        <Section title="Port Values">
+        <Section title={t('properties.portValues')}>
           {allPorts.map((p) => (
             <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
               <label style={{ fontSize: 11, color: '#8899bb', minWidth: 80, flexShrink: 0 }}>
@@ -330,23 +333,23 @@ const PropertiesPanel: React.FC = () => {
             </div>
           ))}
           <button className="btn-primary" onClick={handleSavePorts} style={{ marginTop: 4 }}>
-            Apply
+            {t('properties.apply')}
           </button>
           <div style={{ fontSize: 10, color: '#556', marginTop: 4 }}>
-            Use <code style={{ color: '#88aacc' }}>{'{key}'}</code> for blackboard references
+            {t('properties.portDescription')}
           </div>
         </Section>
       )}
 
       {/* Pre-conditions Section */}
-      <Section title="Pre-conditions">
+      <Section title={t('properties.preconditions')}>
         <div style={{ fontSize: 10, color: '#556', marginBottom: 6 }}>
-          Evaluated before tick
+          {t('properties.preconditionsDescription')}
         </div>
         {PRE_KEYS.map(key => (
           <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <label style={{ fontSize: 11, color: '#8899bb', minWidth: 90, flexShrink: 0 }}>
-              {PRE_LABELS[key]}
+              {t(`conditions.${PRE_I18N_KEYS[key]}`)}
             </label>
             <input
               type="text"
@@ -358,19 +361,19 @@ const PropertiesPanel: React.FC = () => {
           </div>
         ))}
         <button className="btn-primary" onClick={handleSaveConditions} style={{ marginTop: 4 }}>
-          Save
+          {t('properties.save')}
         </button>
       </Section>
 
       {/* Post-conditions Section */}
-      <Section title="Post-conditions">
+      <Section title={t('properties.postconditions')}>
         <div style={{ fontSize: 10, color: '#556', marginBottom: 6 }}>
-          Script executed after tick
+          {t('properties.postconditionsDescription')}
         </div>
         {POST_KEYS.map(key => (
           <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <label style={{ fontSize: 11, color: '#8899bb', minWidth: 90, flexShrink: 0 }}>
-              {POST_LABELS[key]}
+              {t(`conditions.${POST_I18N_KEYS[key]}`)}
             </label>
             <input
               type="text"
@@ -382,7 +385,7 @@ const PropertiesPanel: React.FC = () => {
           </div>
         ))}
         <button className="btn-primary" onClick={handleSaveConditions} style={{ marginTop: 4 }}>
-          Save
+          {t('properties.save')}
         </button>
       </Section>
 

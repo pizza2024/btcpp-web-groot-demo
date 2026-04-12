@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBTStore } from '../store/btStore';
 import { CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeCategory, BTNodeDefinition } from '../types/bt';
@@ -7,6 +8,7 @@ import NodeModelModal from './NodeModelModal';
 const CATEGORIES: BTNodeCategory[] = ['Action', 'Condition', 'Control', 'Decorator', 'SubTree'].sort((a, b) => a.localeCompare(b)) as BTNodeCategory[];
 
 const NodePalette: React.FC = () => {
+  const { t } = useTranslation();
   const { project, addNodeModel, updateNodeModel, deleteNodeModel } = useBTStore();
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(CATEGORIES));
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,7 +71,7 @@ const NodePalette: React.FC = () => {
       <div style={{ padding: '8px 8px 4px 8px' }}>
         <input
           type="text"
-          placeholder="Search models..."
+          placeholder={t('palette.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{

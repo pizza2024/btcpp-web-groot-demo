@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBTStore } from '../store/btStore';
 
 const TreeManager: React.FC = () => {
+  const { t } = useTranslation();
   const { project, activeTreeId, setActiveTree, addTree, renameTree, deleteTree, setMainTree } =
     useBTStore();
   const [newTreeId, setNewTreeId] = useState('');
@@ -28,7 +30,7 @@ const TreeManager: React.FC = () => {
 
   return (
     <div className="panel tree-manager">
-      <div className="panel-header">Behavior Trees</div>
+      <div className="panel-header">{t('treeManager.panel')}</div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {project.trees.map((tree) => {
@@ -86,7 +88,7 @@ const TreeManager: React.FC = () => {
                   >✎</button>
                   <button
                     className="tree-btn danger"
-                    title="Delete"
+                    title={t('treeManager.delete')}
                     onClick={(e) => { e.stopPropagation(); deleteTree(tree.id); }}
                   >✕</button>
                 </div>
@@ -101,7 +103,7 @@ const TreeManager: React.FC = () => {
           value={newTreeId}
           onChange={(e) => setNewTreeId(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          placeholder="NewTreeName"
+          placeholder={t('treeManager.newTreePlaceholder')}
           style={{
             flex: 1,
             background: '#1a1a2e',

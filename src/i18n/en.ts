@@ -25,18 +25,29 @@ const en = {
   },
   // Properties panel
   properties: {
+    panel: 'Properties',
     name: 'Name',
     ports: 'Ports',
     parameters: 'Parameters',
     preconditions: 'Pre-conditions',
     postconditions: 'Post-conditions',
     apply: 'Apply',
+    save: 'Save',
     cancel: 'Cancel',
     nodeType: 'Node Type',
     category: 'Category',
     description: 'Description',
     required: 'Required',
     optional: 'Optional',
+    selectNode: 'Select a node on the canvas to view its properties.',
+    optionalAlias: 'optional alias',
+    subtreeTarget: 'SubTree Target',
+    selectTree: '-- Select Tree --',
+    availableTrees: 'Available trees: {{trees}}',
+    portValues: 'Port Values',
+    portDescription: 'Use blackboard references with {key}',
+    preconditionsDescription: 'Evaluated before tick',
+    postconditionsDescription: 'Script executed after tick',
   },
   // Node edit modal
   nodeEdit: {
@@ -56,14 +67,14 @@ const en = {
   },
   // Precondition/Postcondition keys
   conditions: {
-    failureIf: '_failureIf',
-    successIf: '_successIf',
-    skipIf: '_skipIf',
-    while: '_while',
-    onSuccess: '_onSuccess',
-    onFailure: '_onFailure',
-    onHalted: '_onHalted',
-    post: '_post',
+    failureIf: 'Failure if',
+    successIf: 'Success if',
+    skipIf: 'Skip if',
+    while: 'While (guard)',
+    onSuccess: 'On Success',
+    onFailure: 'On Failure',
+    onHalted: 'On Halted',
+    post: 'Post (any)',
   },
   // Toast messages
   toast: {
@@ -113,9 +124,17 @@ const en = {
     treeLabel: 'Tree',
     mainTree: 'MainTree',
   },
+  // Tree manager
+  treeManager: {
+    panel: 'Behavior Trees',
+    delete: 'Delete',
+    newTreePlaceholder: 'NewTreeName',
+  },
   // Node palette
   palette: {
     searchPlaceholder: 'Search models...',
+    searchNodesPlaceholder: 'Search nodes...',
+    noNodesFound: 'No nodes found',
     categories: {
       actions: 'Actions',
       conditions: 'Conditions',
