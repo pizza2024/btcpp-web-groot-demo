@@ -20,6 +20,17 @@ export interface DebugState {
   }>;
 }
 
+export interface FavoriteTemplate {
+  id: string;
+  name: string;
+  type: string;
+  ports?: Record<string, string>;
+  preconditions?: Record<string, string>;
+  postconditions?: Record<string, string>;
+  category: string;
+  createdAt: number;
+}
+
 interface BTStore {
   project: BTProject;
   activeTreeId: string;
@@ -88,6 +99,12 @@ interface BTStore {
   debugStep: (direction: 'forward' | 'back') => void;
   debugPlay: () => void;
   debugReset: () => void;
+
+  // Favorites/Templates
+  favorites: FavoriteTemplate[];
+  addFavorite: (template: Omit<FavoriteTemplate, 'id' | 'createdAt'>) => void;
+  removeFavorite: (id: string) => void;
+  updateFavorite: (id: string, name: string) => void;
 }
 
 const defaultDebug: DebugState = {
@@ -110,6 +127,30 @@ export const useBTStore = create<BTStore>()(
   // Undo/Redo history
   _undoStack: [] as BTProject[],
   _redoStack: [] as BTProject[],
+  // Favorites/Templates
+  favorites: [] as FavoriteTemplate[],
+
+  addFavorite(template) {
+    const { favorites } = get();
+    const newFavorite: FavoriteTemplate = {
+      ...template,
+      id: `fav_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: Date.now(),
+    };
+    set({ favorites: [...favorites, newFavorite] });
+  },
+
+  removeFavorite(id) {
+    const { favorites } = get();
+    set({ favorites: favorites.filter((f) => f.id !== id) });
+  },
+
+  updateFavorite(id, name) {
+    const { favorites } = get();
+    set({
+      favorites: favorites.map((f) => (f.id === id ? { ...f, name } : f)),
+    });
+  },
 
   pushHistory() {
     const { project, _undoStack } = get();

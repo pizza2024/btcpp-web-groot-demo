@@ -154,6 +154,13 @@ const zh = {
     en: 'English',
     zh: '中文',
   },
+  // Favorites/Templates
+  favorites: {
+    title: '收藏夹',
+    empty: '暂无收藏\n右键节点即可收藏',
+    remove: '移除',
+    hint: '拖动到画布使用',
+  },
 };
 
 export default zh;

@@ -154,6 +154,13 @@ const en = {
     en: 'English',
     zh: '中文',
   },
+  // Favorites/Templates
+  favorites: {
+    title: 'Favorites',
+    empty: 'No favorites yet.\nRight-click a node to save it.',
+    remove: 'Remove',
+    hint: 'Drag to canvas to use',
+  },
 };
 
 export default en;

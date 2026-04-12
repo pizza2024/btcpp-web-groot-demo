@@ -937,6 +937,44 @@ const BTCanvas: React.FC = () => {
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
+
+      // Check for favorite template drop first
+      const templateData = event.dataTransfer.getData('application/bt-template');
+      if (templateData && rfInstanceRef.current) {
+        const template = JSON.parse(templateData);
+        const position = rfInstanceRef.current.screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+
+        const def: BTNodeDefinition | undefined = project.nodeModels.find((m) => m.type === template.type)
+          ?? BUILTIN_NODES.find((m) => m.type === template.type);
+        const category = def?.category ?? template.category ?? 'Action';
+        const colors = CATEGORY_COLORS[category] ?? CATEGORY_COLORS['Action'];
+
+        const newNode: Node = {
+          id: `n_${Math.random().toString(36).slice(2, 9)}`,
+          type: 'btNode',
+          position,
+          data: {
+            label: template.name || template.type,
+            nodeType: template.type,
+            category,
+            colors,
+            ports: template.ports || {},
+            preconditions: template.preconditions,
+            postconditions: template.postconditions,
+            childrenCount: 0,
+          },
+        };
+
+        useBTStore.getState().pushHistory();
+        setNodes((nds) => [...nds, newNode]);
+        setSelectedEdgeId(null);
+        return;
+      }
+
+      // Handle regular node type drop
       const nodeType = event.dataTransfer.getData('application/btnode-type');
       if (!nodeType || !rfInstanceRef.current) return;
 
@@ -1006,21 +1044,38 @@ const BTCanvas: React.FC = () => {
       },
     ] : [],
     node: menuState.targetType === 'node' && menuState.targetId ? (() => {
-      const nodeData = nodes.find((n) => n.id === menuState.targetId)?.data as { isRoot?: boolean } | undefined;
+      const nodeData = nodes.find((n) => n.id === menuState.targetId)?.data as { isRoot?: boolean; type?: string; ports?: Record<string, string>; category?: string; name?: string } | undefined;
       const isRoot = nodeData?.isRoot === true;
       if (isRoot) return []; // ROOT node: no context menu
-      return [{
-        id: 'delete',
-        label: 'Delete Node',
-        icon: '🗑️',
-        danger: true,
-        action: () => {
-          useBTStore.getState().pushHistory();
-          // Delete node and its edges
-          setNodes((prev) => prev.filter((n) => n.id !== menuState.targetId));
-          setEdges((prev) => prev.filter((e) => e.source !== menuState.targetId && e.target !== menuState.targetId));
+      return [
+        {
+          id: 'save-template',
+          label: '⭐ Save as Template',
+          icon: '⭐',
+          action: () => {
+            if (nodeData?.type) {
+              useBTStore.getState().addFavorite({
+                name: nodeData.name || nodeData.type,
+                type: nodeData.type,
+                ports: nodeData.ports,
+                category: nodeData.category || 'Action',
+              });
+            }
+          },
         },
-      }];
+        {
+          id: 'delete',
+          label: 'Delete Node',
+          icon: '🗑️',
+          danger: true,
+          action: () => {
+            useBTStore.getState().pushHistory();
+            // Delete node and its edges
+            setNodes((prev) => prev.filter((n) => n.id !== menuState.targetId));
+            setEdges((prev) => prev.filter((e) => e.source !== menuState.targetId && e.target !== menuState.targetId));
+          },
+        },
+      ];
     })() : [],
     pane: menuState.targetType === 'pane' ? [
       {

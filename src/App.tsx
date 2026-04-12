@@ -5,6 +5,7 @@ import BTCanvas from './components/BTCanvas';
 import TreeManager from './components/TreeManager';
 import PropertiesPanel from './components/PropertiesPanel';
 import DebugPanel from './components/DebugPanel';
+import FavoritesPanel from './components/FavoritesPanel';
 import { useBTStore } from './store/btStore';
 import './App.css';
 
@@ -26,6 +27,7 @@ const App: React.FC = () => {
         {/* Canvas */}
         <div className="canvas-area">
           <BTCanvas />
+          <FavoritesPanel />
         </div>
 
         {/* Right sidebar */}
