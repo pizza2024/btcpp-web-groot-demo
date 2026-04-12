@@ -14,7 +14,7 @@ import '@xyflow/react/dist/style.css';
 import html2canvas from 'html2canvas';
 
 import { useBTStore } from '../store/btStore';
-import { treeToFlow, flowToTree, isSameTreeStructure } from '../utils/btFlow';
+import { treeToFlow, flowToTree, isSameTreeStructure, getDescendantIds } from '../utils/btFlow';
 import { autoLayout } from '../utils/btLayout';
 import { validatePortConnection } from '../utils/btXml';
 import BTFlowNode from './nodes/BTFlowNode';
@@ -155,6 +155,138 @@ const BTCanvas: React.FC = () => {
     setEdges((prev) => prev.filter((edge) => edge.id !== edgeId));
     setSelectedEdgeId((prev) => (prev === edgeId ? null : prev));
   }, [setEdges]);
+
+  // ── Ctrl+Drag Subtree ──────────────────────────────────────────────────────
+  // Track Ctrl key state separately via keydown/keyup so we can detect it reliably
+  const ctrlKeyRef = useRef(false);
+
+  // Track ctrl+drag state: isCtrlDragging, draggedNodeId, and original positions
+  const ctrlDragRef = useRef<{
+    isCtrlDragging: boolean;
+    draggedNodeId: string | null;
+    // nodeId -> { x, y } of all descendants at drag start
+    startPositions: Map<string, { x: number; y: number }>;
+  }>({ isCtrlDragging: false, draggedNodeId: null, startPositions: new Map() });
+
+  // Set up global Ctrl key tracking
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        ctrlKeyRef.current = true;
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        ctrlKeyRef.current = false;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  const onNodeDragStart = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (!ctrlKeyRef.current) return;
+      const descendantIds = getDescendantIds(node.id, edges);
+      if (descendantIds.length === 0) return; // No subtree to drag
+
+      // Push history before moving
+      useBTStore.getState().pushHistory();
+
+      // Get current node positions from store (most up-to-date)
+      const currentNodes = useBTStore.getState().localNodes;
+
+      // Record start positions of dragged node and all descendants
+      const startPositions = new Map<string, { x: number; y: number }>();
+      const draggedNodeCurrent = currentNodes.find((n) => n.id === node.id);
+      if (draggedNodeCurrent) {
+        startPositions.set(node.id, { ...draggedNodeCurrent.position });
+      }
+      currentNodes.forEach((n) => {
+        if (descendantIds.includes(n.id)) {
+          startPositions.set(n.id, { ...n.position });
+        }
+      });
+
+      ctrlDragRef.current = {
+        isCtrlDragging: true,
+        draggedNodeId: node.id,
+        startPositions,
+      };
+    },
+    [edges]
+  );
+
+  const onNodeDragStop = useCallback(() => {
+    ctrlDragRef.current = {
+      isCtrlDragging: false,
+      draggedNodeId: null,
+      startPositions: new Map(),
+    };
+  }, []);
+
+  // onNodeDrag fires during drag — we handle subtree movement in handleNodesChange
+  const onNodeDrag = useCallback((_event: React.MouseEvent, _node: Node) => {
+    // Subtree movement handled in handleNodesChange based on position changes
+  }, []);
+
+  // Intercept position changes to apply Ctrl+drag subtree delta
+  const handleNodesChange = useCallback(
+    (changes: Parameters<typeof onNodesChange>[0]) => {
+      const { isCtrlDragging, draggedNodeId, startPositions } = ctrlDragRef.current;
+
+      if (!isCtrlDragging || !draggedNodeId) {
+        onNodesChange(changes);
+        return;
+      }
+
+      // Find position change for the dragged root node
+      const positionChange = changes.find(
+        (c) => c.type === 'position' && c.id === draggedNodeId && c.position
+      );
+
+      if (!positionChange) {
+        onNodesChange(changes);
+        return;
+      }
+
+      const { position: newPos } = positionChange as { type: 'position'; id: string; position: { x: number; y: number } };
+      const origPos = startPositions.get(draggedNodeId);
+      if (!origPos || !newPos) {
+        onNodesChange(changes);
+        return;
+      }
+
+      const dx = newPos.x - origPos.x;
+      const dy = newPos.y - origPos.y;
+
+      if (dx === 0 && dy === 0) {
+        onNodesChange(changes);
+        return;
+      }
+
+      // Build updated nodes array: move all descendants by the same delta
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id === draggedNodeId) {
+            // Let ReactFlow handle the dragged node via onNodesChange
+            return n;
+          }
+          const orig = startPositions.get(n.id);
+          if (!orig) return n;
+          return { ...n, position: { x: orig.x + dx, y: orig.y + dy } };
+        })
+      );
+
+      // Also let ReactFlow process the original change for the dragged node
+      onNodesChange(changes);
+    },
+    [onNodesChange, setNodes]
+  );
 
   // Sync: responds to tree switch and external project changes (like XML load)
   // NOT triggered by our own saveToStore (we use forceLayoutRef for that)
@@ -836,7 +968,10 @@ const BTCanvas: React.FC = () => {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDragStop={onNodeDragStop}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onConnectStart={onConnectStart}

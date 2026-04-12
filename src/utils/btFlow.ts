@@ -134,6 +134,29 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
   return { id: treeId, root: buildNode(rootNode.id) };
 }
 
+/**
+ * Get all descendant node IDs of a given node (all nodes reachable via outgoing edges).
+ * This is used for Ctrl+drag to move an entire subtree.
+ */
+export function getDescendantIds(nodeId: string, edges: Edge[]): string[] {
+  const children: Map<string, string[]> = new Map();
+  edges.forEach((e) => {
+    const arr = children.get(e.source) ?? [];
+    arr.push(e.target);
+    children.set(e.source, arr);
+  });
+
+  const result: string[] = [];
+  const queue: string[] = [...(children.get(nodeId) ?? [])];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    result.push(current);
+    const grandchildren = children.get(current) ?? [];
+    queue.push(...grandchildren);
+  }
+  return result;
+}
+
 export function isSameTreeStructure(left: BTTree, right: BTTree): boolean {
   if (left.id !== right.id) return false;
   return isSameTreeNodeStructure(left.root, right.root);
