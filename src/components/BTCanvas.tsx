@@ -361,7 +361,7 @@ const BTCanvas: React.FC = () => {
       });
       setEdges(withSelectedEdge(newEdges, selectedEdgeId, deleteEdge));
     }
-  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge]);
+  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds]);
 
   // Highlight selected nodes
   React.useEffect(() => {
@@ -1091,7 +1091,11 @@ const BTCanvas: React.FC = () => {
           label: '📋 Copy Node',
           icon: '📋',
           action: () => {
-            if (targetNode) copyNode(targetNode);
+            // Look up node directly from store at action time to avoid stale closure
+            const nodeToCopy = menuState.targetId
+              ? (useBTStore.getState().localNodes.find((n) => n.id === menuState.targetId) ?? null)
+              : null;
+            if (nodeToCopy) copyNode(nodeToCopy);
           },
         },
         {
