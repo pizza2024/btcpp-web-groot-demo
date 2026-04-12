@@ -310,6 +310,34 @@
   flex: 1;
 }
 
+.context-menu-separator {
+  height: 1px;
+  background: #2a3a5a;
+  margin: 4px 8px;
+}
+
+.context-menu-arrow {
+  font-size: 9px;
+  opacity: 0.6;
+}
+
+.context-menu-submenu {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  background: var(--bg-tertiary);
+  border: 1px solid #2a3a5a;
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 1001;
+}
+
+.context-menu-has-submenu {
+  position: relative;
+}
+
 /* ─── Node Picker (drag to create) ───────────────────────────────── */
 .node-picker {
   background: var(--bg-tertiary);

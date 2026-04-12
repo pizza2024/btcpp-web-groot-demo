@@ -39,6 +39,8 @@ interface BTStore {
   // Local canvas nodes/edges for lookup before they're saved to project tree
   localNodes: Node[];
   localEdges: Edge[];
+  // Collapsed nodes (hidden in canvas)
+  collapsedNodeIds: Set<string>;
 
   // Project actions
   loadXML: (xml: string) => void;
@@ -124,6 +126,7 @@ export const useBTStore = create<BTStore>()(
   debugState: defaultDebug,
   localNodes: [],
   localEdges: [],
+  collapsedNodeIds: new Set<string>(),
   // Undo/Redo history
   _undoStack: [] as BTProject[],
   _redoStack: [] as BTProject[],
@@ -334,10 +337,27 @@ export const useBTStore = create<BTStore>()(
     const idsToDelete = new Set(selectedNodeIds);
     const project = get().project;
     const activeTreeId = get().activeTreeId;
-    
+
     // For now, just clear selection - actual deletion is handled in component
     set({ selectedNodeIds: new Set(), selectedNodeId: null });
     return idsToDelete;
+  },
+
+  // Toggle node collapse (hide/show descendants)
+  toggleNodeCollapse(nodeId: string) {
+    const { collapsedNodeIds } = get();
+    const newSet = new Set(collapsedNodeIds);
+    if (newSet.has(nodeId)) {
+      newSet.delete(nodeId);
+    } else {
+      newSet.add(nodeId);
+    }
+    set({ collapsedNodeIds: newSet });
+  },
+
+  // Check if node is collapsed
+  isNodeCollapsed(nodeId: string): boolean {
+    return get().collapsedNodeIds.has(nodeId);
   },
 
   clipboard: null,

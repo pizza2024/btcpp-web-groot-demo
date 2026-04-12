@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { STATUS_COLORS, BUILTIN_NODES } from '../../types/bt-constants';
@@ -16,12 +16,13 @@ interface BTNodeData {
   status?: string;
   childrenCount: number;
   isRoot?: boolean;
+  isCollapsed?: boolean;
   [key: string]: unknown;
 }
 
-const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
+const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId }) => {
   const d = data as BTNodeData;
-  const { label, category, colors, ports, preconditions, postconditions, description, status, isRoot } = d;
+  const { label, category, colors, ports, preconditions, postconditions, description, status, isRoot, isCollapsed } = d;
 
   const statusColor = status ? STATUS_COLORS[status] : undefined;
   const borderColor = statusColor ?? (selected ? '#ffffff' : colors.border);
@@ -36,61 +37,95 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
   const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 });
   const { project } = useBTStore();
 
-  // Look up port definitions for this node type
-  const nodeDef = BUILTIN_NODES.find(n => n.type === d.nodeType);
+  // Memoize node definition lookup
+  const nodeDef = useMemo(
+    () => BUILTIN_NODES.find(n => n.type === d.nodeType),
+    [d.nodeType]
+  );
 
-  // Group port entries by direction
-  // Combine port values from node data with port definitions
-  // Show all defined ports, using defaultValue if no value set
-  const definedPorts = nodeDef?.ports ?? [];
-  const portEntries: Array<[string, string]> = [];
-  
-  // First add ports from node data (non-empty values)
-  if (ports) {
-    Object.entries(ports).forEach(([k, v]) => {
-      if (v !== '') {
-        portEntries.push([k, v]);
+  // Memoize port entries grouping
+  const { inputPorts, outputPorts, inoutPorts, hasPre, hasPost, portEntries } = useMemo(() => {
+    // Group port entries by direction
+    const definedPorts = nodeDef?.ports ?? [];
+    const portEntries: Array<[string, string]> = [];
+
+    // First add ports from node data (non-empty values)
+    if (ports) {
+      Object.entries(ports).forEach(([k, v]) => {
+        if (v !== '') {
+          portEntries.push([k, v]);
+        }
+      });
+    }
+
+    // Then add ports from definition that aren't in node data yet
+    definedPorts.forEach((def) => {
+      if (!portEntries.find(([k]) => k === def.name) && def.name !== '__autoremap') {
+        portEntries.push([def.name, '']);
       }
     });
-  }
-  
-  // Then add ports from definition that aren't in node data yet
-  definedPorts.forEach((def) => {
-    if (!portEntries.find(([k]) => k === def.name) && def.name !== '__autoremap') {
-      portEntries.push([def.name, '']);
-    }
-  });
 
-  // Build port groups based on direction
-  const inputPorts: Array<[string, string]> = [];
-  const outputPorts: Array<[string, string]> = [];
-  const inoutPorts: Array<[string, string]> = [];
+    const inputPorts: Array<[string, string]> = [];
+    const outputPorts: Array<[string, string]> = [];
+    const inoutPorts: Array<[string, string]> = [];
 
-  portEntries.forEach(([k, v]) => {
-    const def = definedPorts.find(p => p.name === k);
-    if (def?.direction === 'input') {
-      inputPorts.push([k, v]);
-    } else if (def?.direction === 'output') {
-      outputPorts.push([k, v]);
-    } else if (def?.direction === 'inout') {
-      inoutPorts.push([k, v]);
-    } else {
-      // No direction info - check name patterns
-      const lowerK = k.toLowerCase();
-      if (lowerK.startsWith('in') || lowerK.startsWith('input')) {
+    portEntries.forEach(([k, v]) => {
+      const def = definedPorts.find(p => p.name === k);
+      if (def?.direction === 'input') {
         inputPorts.push([k, v]);
-      } else if (lowerK.startsWith('out') || lowerK.startsWith('output')) {
+      } else if (def?.direction === 'output') {
         outputPorts.push([k, v]);
+      } else if (def?.direction === 'inout') {
+        inoutPorts.push([k, v]);
       } else {
-        // Default to input
-        inputPorts.push([k, v]);
+        // No direction info - check name patterns
+        const lowerK = k.toLowerCase();
+        if (lowerK.startsWith('in') || lowerK.startsWith('input')) {
+          inputPorts.push([k, v]);
+        } else if (lowerK.startsWith('out') || lowerK.startsWith('output')) {
+          outputPorts.push([k, v]);
+        } else {
+          inputPorts.push([k, v]);
+        }
       }
-    }
-  });
+    });
 
-  // Check for pre/post conditions
-  const hasPre = preconditions && Object.values(preconditions).some(v => v);
-  const hasPost = postconditions && Object.values(postconditions).some(v => v);
+    const hasPre = !!(preconditions && Object.values(preconditions).some(v => v));
+    const hasPost = !!(postconditions && Object.values(postconditions).some(v => v));
+
+    return { inputPorts, outputPorts, inoutPorts, hasPre, hasPost, portEntries };
+  }, [nodeDef, ports, preconditions, postconditions]);
+
+  // Memoize handle list
+  const handles = useMemo(() => {
+    const result: React.ReactNode[] = [];
+
+    // Target handle (input) - for all non-ROOT nodes
+    if (!isRootNode) {
+      result.push(
+        <Handle
+          key="target"
+          type="target"
+          position={Position.Top}
+          style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
+        />
+      );
+    }
+
+    // Source handle (output) - only for nodes that can have children
+    if (!isLeaf) {
+      result.push(
+        <Handle
+          key="source"
+          type="source"
+          position={Position.Bottom}
+          style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
+        />
+      );
+    }
+
+    return result;
+  }, [isRootNode, isLeaf]);
 
   // Double click opens edit modal (disabled for ROOT)
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -109,37 +144,6 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
     }));
   };
 
-  // Calculate handle positions based on node category
-  // ROOT: only output (source) handle at bottom
-  // Leaf (Action/Condition): only input (target) handle at top
-  // Control/Decorator/SubTree: both input and output handles
-  const handles: React.ReactNode[] = [];
-
-  // Target handle (input) - for all non-ROOT nodes
-  if (!isRootNode) {
-    handles.push(
-      <Handle
-        key="target"
-        type="target"
-        position={Position.Top}
-        style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
-      />
-    );
-  }
-
-  // Source handle (output) - only for nodes that can have children
-  // ROOT, Control, Decorator, SubTree can have children (except leaf nodes)
-  if (!isLeaf) {
-    handles.push(
-      <Handle
-        key="source"
-        type="source"
-        position={Position.Bottom}
-        style={{ background: '#6888aa', border: 'none', width: 8, height: 8 }}
-      />
-    );
-  }
-
   // SubTree preview popup
   const renderSubTreePreview = () => {
     if (!isSubTree || !showPreview) return null;
@@ -149,13 +153,13 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
     if (!targetTree) return null;
 
     // Count nodes in subtree
-    const countNodes = (node: BTTreeNode): number => {
+    const countNodes = (node: import('../../types/bt').BTTreeNode): number => {
       return 1 + (node.children?.reduce((sum, c) => sum + countNodes(c), 0) ?? 0);
     };
     const totalNodes = countNodes(targetTree.root);
 
     // Render mini tree structure
-    const renderMiniTree = (node: BTTreeNode, depth: number = 0): React.ReactNode => {
+    const renderMiniTree = (node: import('../../types/bt').BTTreeNode, depth: number = 0): React.ReactNode => {
       const indent = depth * 12;
       return (
         <div key={node.id} style={{ paddingLeft: indent, fontSize: 10, color: 'var(--text-secondary)' }}>
@@ -262,6 +266,32 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
     >
       {handles}
 
+      {/* Collapsed indicator */}
+      {isCollapsed && (
+        <div
+          style={{
+            position: 'absolute',
+            top: -8,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#f0a020',
+            borderRadius: '50%',
+            width: 16,
+            height: 16,
+            border: '2px solid var(--bg-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 10,
+            color: '#000',
+            zIndex: 10,
+          }}
+          title="Subtree is collapsed"
+        >
+          ▶
+        </div>
+      )}
+
       {/* Category badge */}
       <div style={{ fontSize: 9, opacity: 0.7, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {isLeaf ? 'Action' : category}
@@ -274,21 +304,21 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
 
       {/* Ports display - Groot2 style */}
       {portEntries.length > 0 && (
-        <div style={{ 
-          marginTop: 6, 
-          marginBottom: 2, 
+        <div style={{
+          marginTop: 6,
+          marginBottom: 2,
           paddingTop: 4,
           borderTop: '1px solid rgba(255,255,255,0.1)',
-          fontSize: 10 
+          fontSize: 10
         }}>
           {/* Input ports */}
           {inputPorts.length > 0 && (
             <div style={{ marginBottom: 4 }}>
               {inputPorts.map(([k, v]) => (
-                <div 
-                  key={k} 
-                  style={{ 
-                    display: 'flex', 
+                <div
+                  key={k}
+                  style={{
+                    display: 'flex',
                     alignItems: 'center',
                     gap: 6,
                     marginBottom: 2,
@@ -300,15 +330,15 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
                   onDoubleClick={(e) => handlePortDoubleClick(e, k, 'input')}
                   title={`Double-click to edit: ${k}`}
                 >
-                  <span style={{ 
-                    fontSize: 8, 
-                    opacity: 0.6, 
+                  <span style={{
+                    fontSize: 8,
+                    opacity: 0.6,
                     textTransform: 'uppercase',
                     fontWeight: 600,
                     minWidth: 24
                   }}>IN</span>
                   <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
-                  <span style={{ 
+                  <span style={{
                     color: v.startsWith('{') ? '#80c0ff' : v ? '#ffe080' : '#666',
                     fontStyle: v.startsWith('{') ? 'italic' : (v ? 'normal' : 'italic')
                   }}>
@@ -323,10 +353,10 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
           {outputPorts.length > 0 && (
             <div style={{ marginBottom: 4 }}>
               {outputPorts.map(([k, v]) => (
-                <div 
-                  key={k} 
-                  style={{ 
-                    display: 'flex', 
+                <div
+                  key={k}
+                  style={{
+                    display: 'flex',
                     alignItems: 'center',
                     gap: 6,
                     marginBottom: 2,
@@ -338,15 +368,15 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
                   onDoubleClick={(e) => handlePortDoubleClick(e, k, 'output')}
                   title={`Double-click to edit: ${k}`}
                 >
-                  <span style={{ 
-                    fontSize: 8, 
-                    opacity: 0.6, 
+                  <span style={{
+                    fontSize: 8,
+                    opacity: 0.6,
                     textTransform: 'uppercase',
                     fontWeight: 600,
                     minWidth: 24
                   }}>OUT</span>
                   <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
-                  <span style={{ 
+                  <span style={{
                     color: v.startsWith('{') ? '#80c0ff' : v ? '#ffe080' : '#666',
                     fontStyle: v.startsWith('{') ? 'italic' : (v ? 'normal' : 'italic')
                   }}>
@@ -361,10 +391,10 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
           {inoutPorts.length > 0 && (
             <div>
               {inoutPorts.map(([k, v]) => (
-                <div 
-                  key={k} 
-                  style={{ 
-                    display: 'flex', 
+                <div
+                  key={k}
+                  style={{
+                    display: 'flex',
                     alignItems: 'center',
                     gap: 6,
                     marginBottom: 2,
@@ -376,16 +406,16 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
                   onDoubleClick={(e) => handlePortDoubleClick(e, k, 'inout')}
                   title={`Double-click to edit: ${k}`}
                 >
-                  <span style={{ 
-                    fontSize: 8, 
-                    opacity: 0.8, 
+                  <span style={{
+                    fontSize: 8,
+                    opacity: 0.8,
                     textTransform: 'uppercase',
                     fontWeight: 600,
                     minWidth: 24,
                     color: '#ffe066'
                   }}>IN/OUT</span>
                   <span style={{ opacity: 0.8, fontWeight: 500 }}>{k}</span>
-                  <span style={{ 
+                  <span style={{
                     color: v.startsWith('{') ? '#80c0ff' : v ? '#ffe080' : '#666',
                     fontStyle: v.startsWith('{') ? 'italic' : (v ? 'normal' : 'italic')
                   }}>
@@ -427,6 +457,22 @@ const BTFlowNode: React.FC<NodeProps> = ({ data, selected, id: nodeId }) => {
       {renderSubTreePreview()}
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if data changed meaningfully
+  const prev = prevProps.data as BTNodeData;
+  const next = nextProps.data as BTNodeData;
+  return (
+    prev.label === next.label &&
+    prev.status === next.status &&
+    prev.selected === nextProps.selected &&
+    JSON.stringify(prev.ports) === JSON.stringify(next.ports) &&
+    JSON.stringify(prev.preconditions) === JSON.stringify(next.preconditions) &&
+    JSON.stringify(prev.postconditions) === JSON.stringify(next.postconditions) &&
+    prev.colors.bg === next.colors.bg &&
+    prev.colors.border === next.colors.border &&
+    prev.isRoot === next.isRoot &&
+    prev.isCollapsed === next.isCollapsed
+  );
+});
 
 export default BTFlowNode;

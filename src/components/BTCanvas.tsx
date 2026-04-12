@@ -21,7 +21,7 @@ import BTFlowNode from './nodes/BTFlowNode';
 import BTFlowEdge from './edges/BTFlowEdge';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeDefinition, BTProject, BTNodeCategory, BTPort } from '../types/bt';
-import { useContextMenu, type MenuConfig } from './ContextMenu';
+import { useContextMenu, type MenuConfig, type MenuItem } from './ContextMenu';
 import NodePicker from './NodePicker';
 import NodeEditModal from './NodeEditModal';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
@@ -117,6 +117,8 @@ const BTCanvas: React.FC = () => {
     copyNode,
     pasteNode,
     pushHistory,
+    collapsedNodeIds,
+    toggleNodeCollapse,
   } = useBTStore();
 
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
@@ -303,7 +305,22 @@ const BTCanvas: React.FC = () => {
     if (shouldForceLayout) {
       // Full rebuild with autoLayout for tree switch or initial load
       const { nodes: n, edges: e } = buildFlowNodes(activeTreeId, project, debugState.nodeStatuses);
-      setNodes(n);
+      // Apply collapsed filter
+      const collapsed = useBTStore.getState().collapsedNodeIds;
+      const collapsedDescendants = new Set<string>();
+      e.forEach((edge) => {
+        if (collapsed.has(edge.source)) {
+          // source is collapsed, mark all its descendants
+          const desc = getDescendantIds(edge.source, e);
+          desc.forEach(d => collapsedDescendants.add(d));
+        }
+      });
+      const visibleNodes = n.map((node) => ({
+        ...node,
+        hidden: collapsedDescendants.has(node.id),
+        data: { ...node.data, isCollapsed: collapsed.has(node.id) },
+      }));
+      setNodes(visibleNodes);
       setEdges(withSelectedEdge(e, selectedEdgeId, deleteEdge));
       lastSyncedTreeRef.current = activeTreeId;
       forceLayoutRef.current = false;
@@ -316,14 +333,29 @@ const BTCanvas: React.FC = () => {
       // Apply autoLayout to properly position all nodes
       const laidOutNodes = autoLayout(newNodes, newEdges);
 
+      // Apply collapsed filter
+      const collapsed = useBTStore.getState().collapsedNodeIds;
+      const collapsedDescendants = new Set<string>();
+      newEdges.forEach((edge) => {
+        if (collapsed.has(edge.source)) {
+          const desc = getDescendantIds(edge.source, newEdges);
+          desc.forEach(d => collapsedDescendants.add(d));
+        }
+      });
+
       // Merge: keep existing positions from local nodes state, but use layout positions for new nodes
       setNodes((prevNodes) => {
         const existingPositions = new Map(prevNodes.map((n) => [n.id, n.position]));
         const merged = laidOutNodes.map((n) => ({
           ...n,
+          hidden: collapsedDescendants.has(n.id),
           position: existingPositions.get(n.id) ?? n.position,
           selected: selectedNodeIds.has(n.id),
-          data: { ...n.data, status: debugState.nodeStatuses.get(n.id) ?? 'IDLE' },
+          data: {
+            ...n.data,
+            isCollapsed: collapsed.has(n.id),
+            status: debugState.nodeStatuses.get(n.id) ?? 'IDLE',
+          },
         }));
         return merged;
       });
@@ -1030,62 +1062,139 @@ const BTCanvas: React.FC = () => {
   }, [nodes, edges]);
 
   // Build dynamic menu config based on current context
-  const dynamicMenuConfig: MenuConfig = useMemo(() => ({
-    edge: menuState.targetType === 'edge' && menuState.targetId ? [
-      {
-        id: 'delete',
-        label: 'Delete Edge',
-        icon: '🗑️',
-        danger: true,
-        action: () => {
-          useBTStore.getState().pushHistory();
-          deleteEdge(menuState.targetId!);
+  const dynamicMenuConfig: MenuConfig = useMemo(() => {
+    const targetNodeId = menuState.targetId;
+    const targetNode = targetNodeId ? nodes.find((n) => n.id === targetNodeId) : null;
+    const targetData = targetNode?.data as { isRoot?: boolean; type?: string; ports?: Record<string, string>; category?: string; name?: string; description?: string; childrenCount?: number; isCollapsed?: boolean } | undefined;
+    const isRoot = targetData?.isRoot === true;
+    const hasChildren = (targetData?.childrenCount ?? 0) > 0;
+    // Read collapsed state from store (authoritative)
+    const collapsedSet = useBTStore.getState().collapsedNodeIds;
+    const isCollapsed = targetNodeId ? collapsedSet.has(targetNodeId) : false;
+
+    return {
+      edge: menuState.targetType === 'edge' && menuState.targetId ? [
+        {
+          id: 'delete',
+          label: 'Delete Edge',
+          icon: '🗑️',
+          danger: true,
+          action: () => {
+            useBTStore.getState().pushHistory();
+            deleteEdge(menuState.targetId!);
+          },
         },
-      },
-    ] : [],
-    node: menuState.targetType === 'node' && menuState.targetId ? (() => {
-      const nodeData = nodes.find((n) => n.id === menuState.targetId)?.data as { isRoot?: boolean; type?: string; ports?: Record<string, string>; category?: string; name?: string } | undefined;
-      const isRoot = nodeData?.isRoot === true;
-      if (isRoot) return []; // ROOT node: no context menu
-      return [
+      ] : [],
+      node: menuState.targetType === 'node' && menuState.targetId && !isRoot ? [
+        {
+          id: 'copy',
+          label: '📋 Copy Node',
+          icon: '📋',
+          action: () => {
+            if (targetNode) copyNode(targetNode);
+          },
+        },
+        {
+          id: 'delete',
+          label: '🗑️ Delete Node',
+          icon: '🗑️',
+          danger: true,
+          action: () => {
+            useBTStore.getState().pushHistory();
+            setNodes((prev) => prev.filter((n) => n.id !== menuState.targetId));
+            setEdges((prev) => prev.filter((e) => e.source !== menuState.targetId && e.target !== menuState.targetId));
+          },
+        },
+        ...(hasChildren ? [{
+          id: 'collapse',
+          label: isCollapsed ? '▶ Expand Subtree' : '▼ Collapse Subtree',
+          icon: isCollapsed ? '▶' : '▼',
+          action: () => {
+            if (menuState.targetId) {
+              toggleNodeCollapse(menuState.targetId);
+            }
+          },
+        }] : []),
+        {
+          id: 'info',
+          label: 'ℹ️ Node Info',
+          icon: 'ℹ️',
+          action: () => {
+            if (!targetData) return;
+            const info = [
+              `Type: ${targetData.type}`,
+              `Category: ${targetData.category}`,
+              targetData.name ? `Name: ${targetData.name}` : null,
+              targetData.description ? `Description: ${targetData.description}` : null,
+              `Children: ${targetData.childrenCount ?? 0}`,
+            ].filter(Boolean).join('\n');
+            alert(`Node Info\n${'─'.repeat(20)}\n${info}`);
+          },
+        },
+        { id: 'sep-save', label: '', separator: true } as MenuItem,
         {
           id: 'save-template',
           label: '⭐ Save as Template',
           icon: '⭐',
           action: () => {
-            if (nodeData?.type) {
+            if (targetData?.type) {
               useBTStore.getState().addFavorite({
-                name: nodeData.name || nodeData.type,
-                type: nodeData.type,
-                ports: nodeData.ports,
-                category: nodeData.category || 'Action',
+                name: targetData.name || targetData.type,
+                type: targetData.type,
+                ports: targetData.ports,
+                category: targetData.category || 'Action',
               });
             }
           },
         },
-        {
-          id: 'delete',
-          label: 'Delete Node',
-          icon: '🗑️',
-          danger: true,
+      ] : [],
+      pane: menuState.targetType === 'pane' ? [
+        ...(useBTStore.getState().clipboard ? [{
+          id: 'paste',
+          label: '📋 Paste Node',
+          icon: '📋',
           action: () => {
-            useBTStore.getState().pushHistory();
-            // Delete node and its edges
-            setNodes((prev) => prev.filter((n) => n.id !== menuState.targetId));
-            setEdges((prev) => prev.filter((e) => e.source !== menuState.targetId && e.target !== menuState.targetId));
+            const newNode = pasteNode();
+            if (newNode) {
+              pushHistory();
+              setNodes((prev) => [...prev, newNode]);
+              selectNode(newNode.id);
+            }
+          },
+        }] : []),
+        {
+          id: 'add',
+          label: '➕ Add Node',
+          icon: '➕',
+          action: () => {
+            // Open node picker at center of viewport
+            const rf = rfInstanceRef.current;
+            if (rf) {
+              const center = rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+              setNodePickerPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2, flowX: center.x, flowY: center.y });
+            }
           },
         },
-      ];
-    })() : [],
-    pane: menuState.targetType === 'pane' ? [
-      {
-        id: 'fitview',
-        label: 'Fit View',
-        icon: '🔍',
-        action: () => rfInstanceRef.current?.fitView(),
-      },
-    ] : [],
-  }), [menuState, deleteEdge]);
+        { id: 'sep-select', label: '', separator: true } as MenuItem,
+        {
+          id: 'selectall',
+          label: '☑️ Select All',
+          icon: '☑️',
+          action: () => {
+            const allIds = new Set(nodes.map((n) => n.id));
+            clearSelection();
+            allIds.forEach((id) => useBTStore.getState().addToSelection(id));
+          },
+        },
+        {
+          id: 'fitview',
+          label: '🔍 Fit View',
+          icon: '🔍',
+          action: () => rfInstanceRef.current?.fitView(),
+        },
+      ] : [],
+    };
+  }, [menuState, nodes, deleteEdge, copyNode, pasteNode, pushHistory, selectNode, clearSelection, toggleNodeCollapse]);
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
@@ -1111,6 +1220,7 @@ const BTCanvas: React.FC = () => {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onInit={(instance) => { rfInstanceRef.current = instance; }}
+        nodeExtent={[[-5000, -5000], [5000, 5000]]}
         fitView
         colorMode="dark"
         defaultEdgeOptions={{ type: 'btEdge', style: { stroke: '#6888aa', strokeWidth: 2 } }}
