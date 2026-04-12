@@ -18,6 +18,7 @@ function parseTreeNode(el: Element, depth = 0): BTTreeNode {
   const ports: Record<string, string> = {};
   const preconditions: Record<string, string> = {};
   const postconditions: Record<string, string> = {};
+  let portRemap: Record<string, string> | undefined;
 
   // Pre/post condition attribute names
   const PRE_KEYS = ['_failureIf', '_successIf', '_skipIf', '_while'];
@@ -25,7 +26,14 @@ function parseTreeNode(el: Element, depth = 0): BTTreeNode {
 
   Array.from(el.attributes).forEach((attr) => {
     if (attr.name === 'ID' || attr.name === 'name') return;
-    if (PRE_KEYS.includes(attr.name)) {
+    if (attr.name === 'port_remap') {
+      // Parse "local:=external,..." into { local: external, ... }
+      portRemap = {};
+      attr.value.split(',').forEach((pair) => {
+        const [local, external] = pair.split(':=');
+        if (local && external) portRemap![local.trim()] = external.trim();
+      });
+    } else if (PRE_KEYS.includes(attr.name)) {
       preconditions[attr.name] = attr.value;
     } else if (POST_KEYS.includes(attr.name)) {
       postconditions[attr.name] = attr.value;
@@ -57,6 +65,7 @@ function parseTreeNode(el: Element, depth = 0): BTTreeNode {
     children,
     ...(Object.keys(preconditions).length > 0 && { preconditions }),
     ...(Object.keys(postconditions).length > 0 && { postconditions }),
+    ...(portRemap && Object.keys(portRemap).length > 0 && { portRemap }),
   };
 }
 
@@ -170,6 +179,13 @@ function serializeNode(
     tagName = 'SubTree';
     // name holds the target tree ID for SubTree nodes
     attrs.push(`ID="${escapeXml(node.name ?? node.type)}"`);
+    // Port remapping: local_port:=external_port,...
+    if (node.portRemap && Object.keys(node.portRemap).length > 0) {
+      const remapStr = Object.entries(node.portRemap)
+        .map(([k, v]) => `${k}:=${v}`)
+        .join(',');
+      attrs.push(`port_remap="${escapeXml(remapStr)}"`);
+    }
   } else {
     tagName = node.type;
     if (node.name && node.name !== node.type) {

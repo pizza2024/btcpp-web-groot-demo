@@ -55,6 +55,7 @@ interface BTStore {
     preconditions?: Record<string, string>,
     postconditions?: Record<string, string>
   ) => void;
+  updateNodePortRemap: (nodeId: string, portRemap?: Record<string, string>) => void;
 
   // Selection
   selectNode: (id: string | null) => void;
@@ -269,6 +270,15 @@ export const useBTStore = create<BTStore>()(
     set({ project: { ...project, trees } });
   },
 
+  updateNodePortRemap(nodeId, portRemap) {
+    const { project, activeTreeId } = get();
+    const trees = project.trees.map((tree) => {
+      if (tree.id !== activeTreeId) return tree;
+      return { ...tree, root: updateNodePortRemapRecursive(tree.root, nodeId, portRemap) };
+    });
+    set({ project: { ...project, trees } });
+  },
+
   loadDebugLog(text) {
     // Expected format (one per line):
     // timestamp nodeUid nodeType nodeName status [treeId]
@@ -411,5 +421,20 @@ function updateNodeConditionsRecursive(
   return {
     ...node,
     children: node.children.map((c) => updateNodeConditionsRecursive(c, nodeId, preconditions, postconditions)),
+  };
+}
+
+function updateNodePortRemapRecursive(
+  node: import('../types/bt').BTTreeNode,
+  nodeId: string,
+  portRemap?: Record<string, string>
+): import('../types/bt').BTTreeNode {
+  if (node.id === nodeId) {
+    return { ...node, portRemap };
+  }
+  if (node.children.length === 0) return node;
+  return {
+    ...node,
+    children: node.children.map((c) => updateNodePortRemapRecursive(c, nodeId, portRemap)),
   };
 }

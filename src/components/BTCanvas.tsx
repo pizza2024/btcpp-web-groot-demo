@@ -432,6 +432,7 @@ const BTCanvas: React.FC = () => {
     preconditions?: Record<string, string>;
     postconditions?: Record<string, string>;
     description?: string;
+    portRemap?: Record<string, string>;
   }) => {
     if (!editingNodeId) return;
 
@@ -445,6 +446,7 @@ const BTCanvas: React.FC = () => {
         preconditions?: Record<string, string>;
         postconditions?: Record<string, string>;
         description?: string;
+        portRemap?: Record<string, string>;
       };
       if (!node || !nodeData) return prev;
 
@@ -459,6 +461,7 @@ const BTCanvas: React.FC = () => {
               preconditions: data.preconditions ?? nodeData.preconditions,
               postconditions: data.postconditions ?? nodeData.postconditions,
               description: data.description,
+              portRemap: data.portRemap,
             },
           };
         }
@@ -477,6 +480,10 @@ const BTCanvas: React.FC = () => {
     if (data.preconditions !== undefined || data.postconditions !== undefined) {
       const { updateNodeConditions } = useBTStore.getState();
       updateNodeConditions(editingNodeId, data.preconditions, data.postconditions);
+    }
+    if (data.portRemap !== undefined) {
+      const { updateNodePortRemap } = useBTStore.getState();
+      updateNodePortRemap(editingNodeId, data.portRemap);
     }
   }, [editingNodeId, setNodes, updateNodeName]);
 
@@ -744,6 +751,7 @@ const BTCanvas: React.FC = () => {
             preconditions={data.preconditions}
             postconditions={data.postconditions}
             description={data.description}
+            portRemap={data.portRemap}
             availableTrees={project.trees.map((t) => t.id)}
             onSave={handleEditSave}
             onClose={() => setEditingNodeId(null)}
