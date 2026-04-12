@@ -8,6 +8,7 @@ import {
   useNodesState,
   useEdgesState,
   BackgroundVariant,
+  SelectionMode,
 } from '@xyflow/react';
 import type { Connection, Node, Edge, ReactFlowInstance } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -672,6 +673,22 @@ const BTCanvas: React.FC = () => {
     [showMenu]
   );
 
+  // Batch selection: drag-to-select handler
+  const onSelectionStart = useCallback(() => {
+    // Clear existing selection when starting a drag selection
+    // (unless Ctrl is held, in which case we want to add to selection)
+  }, []);
+
+  const onSelectionEnd = useCallback(
+    (params: { nodes: Node[] }) => {
+      // Update selectedNodeIds in store based on drag selection
+      const selectedIds = new Set(params.nodes.map((n) => n.id));
+      // Replace the entire selection with the dragged selection
+      useBTStore.getState().setSelectedNodes(selectedIds);
+    },
+    []
+  );
+
   // Save tree back to store when nodes/edges change (debounced)
   // This does NOT trigger the sync effect - they're decoupled
   const saveTimerRef = useRef<number | null>(null);
@@ -1229,6 +1246,10 @@ const BTCanvas: React.FC = () => {
         onEdgeContextMenu={onEdgeContextMenu}
         onNodeContextMenu={onNodeContextMenu}
         onPaneContextMenu={onPaneContextMenu}
+        onSelectionStart={onSelectionStart}
+        onSelectionEnd={onSelectionEnd}
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onInit={(instance) => { rfInstanceRef.current = instance; }}

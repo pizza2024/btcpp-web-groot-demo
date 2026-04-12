@@ -76,6 +76,7 @@ interface BTStore {
   addToSelection: (id: string) => void;
   removeFromSelection: (id: string) => void;
   clearSelection: () => void;
+  setSelectedNodes: (ids: Set<string>) => void;
   toggleSelection: (id: string) => void;
   deleteSelectedNodes: (nodes: Node[]) => void;
 
@@ -321,6 +322,10 @@ export const useBTStore = create<BTStore>()(
 
   clearSelection() {
     set({ selectedNodeIds: new Set(), selectedNodeId: null });
+  },
+
+  setSelectedNodes(ids: Set<string>) {
+    set({ selectedNodeIds: ids, selectedNodeId: ids.size === 1 ? Array.from(ids)[0] : null });
   },
 
   toggleSelection(id) {
