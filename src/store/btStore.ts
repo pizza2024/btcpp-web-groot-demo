@@ -60,6 +60,11 @@ interface BTStore {
   // Selection
   selectNode: (id: string | null) => void;
 
+  // Clipboard (copy/paste)
+  clipboard: { node: Node; offsetX: number; offsetY: number } | null;
+  copyNode: (node: Node) => void;
+  pasteNode: () => Node | null;
+
   // Undo/Redo actions
   pushHistory: () => void;
   undo: () => void;
@@ -241,6 +246,37 @@ export const useBTStore = create<BTStore>()(
 
   selectNode(id) {
     set({ selectedNodeId: id });
+  },
+
+  clipboard: null,
+
+  copyNode(node) {
+    set({ clipboard: { node, offsetX: 50, offsetY: 50 } });
+  },
+
+  pasteNode() {
+    const { clipboard } = get();
+    if (!clipboard) return null;
+
+    const { node } = clipboard;
+    const newId = `n_${Math.random().toString(36).slice(2, 9)}`;
+    const newNode: Node = {
+      ...node,
+      id: newId,
+      position: {
+        x: node.position.x + clipboard.offsetX,
+        y: node.position.y + clipboard.offsetY,
+      },
+      selected: false,
+      data: { ...node.data },
+    };
+
+    // Update clipboard offset for next paste
+    set({
+      clipboard: { ...clipboard, offsetX: clipboard.offsetX + 20, offsetY: clipboard.offsetY + 20 },
+    });
+
+    return newNode;
   },
 
   updateNodePorts(nodeId, ports) {

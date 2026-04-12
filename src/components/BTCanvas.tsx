@@ -546,11 +546,33 @@ const BTCanvas: React.FC = () => {
         setSelectedEdgeId(null);
         return;
       }
+
+      // Ctrl+C: Copy selected node
+      if ((event.ctrlKey || event.metaKey) && event.key === 'c' && selectedNodeId) {
+        event.preventDefault();
+        const nodeToCopy = nodes.find((n) => n.id === selectedNodeId);
+        if (nodeToCopy) {
+          useBTStore.getState().copyNode(nodeToCopy);
+        }
+        return;
+      }
+
+      // Ctrl+V: Paste copied node
+      if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+        event.preventDefault();
+        const newNode = useBTStore.getState().pasteNode();
+        if (newNode) {
+          useBTStore.getState().pushHistory();
+          setNodes((prev) => [...prev, newNode]);
+          selectNode(newNode.id);
+        }
+        return;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deleteEdge, selectNode, selectedEdgeId, selectedNodeId]);
+  }, [deleteEdge, selectNode, selectedEdgeId, selectedNodeId, nodes]);
 
   // Drag-over handler for dropping from palette
   const onDragOver = useCallback((event: React.DragEvent) => {
