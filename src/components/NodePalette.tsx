@@ -63,8 +63,8 @@ const NodePalette: React.FC = () => {
         <span>Models Palette</span>
         <span className="collapse-icon">{collapsed ? '▶' : '▼'}</span>
       </div>
-      <div className="panel-body">
-
+      {!collapsed && (
+      <>
       {/* Search box */}
       <div style={{ padding: '8px 8px 4px 8px' }}>
         <input
@@ -177,6 +177,8 @@ const NodePalette: React.FC = () => {
           onDelete={handleDelete}
           onClose={() => setModelModal(null)}
         />
+      )}
+      </>
       )}
     </div>
   );
