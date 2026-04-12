@@ -71,6 +71,14 @@ const Toolbar: React.FC = () => {
       <button className="toolbar-btn" onClick={handleExportPNG} title="Export Behavior Tree as PNG image">
         🖼️ Export PNG
       </button>
+      {/* Keyboard shortcuts help */}
+      <button
+        className="toolbar-btn"
+        onClick={() => window.dispatchEvent(new CustomEvent('bt-toggle-shortcuts-help'))}
+        title="Keyboard shortcuts (?)"
+      >
+        ?
+      </button>
       <input ref={fileInputRef} type="file" accept=".xml" style={{ display: 'none' }} onChange={handleImport} />
 
       <div className="toolbar-divider" />
