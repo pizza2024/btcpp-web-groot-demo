@@ -363,6 +363,83 @@ export function validatePortConnection(
   return { valid: true };
 }
 
+// ─── Node Model Validation ────────────────────────────────────────────────────
+
+export interface ValidationIssue {
+  severity: 'error' | 'warning' | 'info';
+  nodeId?: string;
+  nodeType?: string;
+  message: string;
+}
+
+/**
+ * Validate a node against its model definition
+ * Returns array of validation issues (empty = valid)
+ */
+export function validateNode(
+  node: BTTreeNode,
+  nodeModels: BTNodeDefinition[]
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  
+  // Find model definition
+  const builtin = BUILTIN_NODES.find(n => n.type === node.type);
+  const model = nodeModels.find(n => n.type === node.type);
+  const ports = builtin?.ports ?? model?.ports;
+  
+  if (!ports || ports.length === 0) return issues; // No ports to validate
+
+  ports.forEach(portDef => {
+    const value = node.ports[portDef.name];
+    
+    // Check required ports (ports without defaults are required)
+    if (portDef.required && (value === undefined || value === '')) {
+      issues.push({
+        severity: 'error',
+        nodeId: node.id,
+        nodeType: node.type,
+        message: `Required port "${portDef.name}" is missing`,
+      });
+    }
+    
+    // Check blackboard reference validity
+    if (value && value.startsWith('{')) {
+      if (!isValidBlackboardKey(value.slice(1, -1))) {
+        issues.push({
+          severity: 'warning',
+          nodeId: node.id,
+          nodeType: node.type,
+          message: `Port "${portDef.name}" has invalid blackboard key "${value}"`,
+        });
+      }
+    }
+  });
+  
+  return issues;
+}
+
+/**
+ * Validate entire project for completeness and correctness
+ */
+export function validateProject(project: BTProject): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  
+  project.trees.forEach(tree => {
+    collectNodeIssues(tree.root, project.nodeModels, issues);
+  });
+  
+  return issues;
+}
+
+function collectNodeIssues(
+  node: BTTreeNode,
+  nodeModels: BTNodeDefinition[],
+  issues: ValidationIssue[]
+): void {
+  issues.push(...validateNode(node, nodeModels));
+  node.children.forEach(child => collectNodeIssues(child, nodeModels, issues));
+}
+
 /**
  * Get direction label for port
  */

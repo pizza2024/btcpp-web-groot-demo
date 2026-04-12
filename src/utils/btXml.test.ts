@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultProject, parseXML, SAMPLE_XML, serializeXML, isBlackboardRef, extractBlackboardKey, parseBlackboardExpression, isValidBlackboardKey, validatePortConnection, getPortDirectionLabel } from './btXml';
+import { defaultProject, parseXML, SAMPLE_XML, serializeXML, isBlackboardRef, extractBlackboardKey, parseBlackboardExpression, isValidBlackboardKey, validatePortConnection, getPortDirectionLabel, validateNode, validateProject } from './btXml';
 
 describe('parseXML', () => {
   it('parses sample XML and extracts trees and main tree id', () => {
@@ -143,6 +143,25 @@ describe('Blackboard Expression Utilities', () => {
       expect(result.valid).toBe(false);
     });
 
+    it('rejects input as source', () => {
+      const result = validatePortConnection(
+        { name: 'in', direction: 'input' },
+        { name: 'out', direction: 'output' }
+      );
+      expect(result.valid).toBe(false);
+      expect(result.warning).toBe('Source port is an input');
+    });
+
+    it('rejects output as target', () => {
+      // source is input (wrong!), target is output - should reject
+      const result = validatePortConnection(
+        { name: 'out', direction: 'input' },
+        { name: 'in', direction: 'output' }
+      );
+      expect(result.valid).toBe(false);
+      expect(result.warning).toBe('Source port is an input');
+    });
+
     it('shows warning for type mismatch', () => {
       const result = validatePortConnection(
         { name: 'out', direction: 'output', type: 'int' },
@@ -150,6 +169,80 @@ describe('Blackboard Expression Utilities', () => {
       );
       expect(result.valid).toBe(true);
       expect(result.warning).toContain('Type mismatch');
+    });
+
+    it('allows matching types without warning', () => {
+      const result = validatePortConnection(
+        { name: 'out', direction: 'output', type: 'double' },
+        { name: 'in', direction: 'input', type: 'double' }
+      );
+      expect(result.valid).toBe(true);
+      expect(result.warning).toBeUndefined();
+    });
+
+    it('allows connection when either port has no type', () => {
+      const result = validatePortConnection(
+        { name: 'out', direction: 'output' },
+        { name: 'in', direction: 'input', type: 'int' }
+      );
+      expect(result.valid).toBe(true);
+      expect(result.warning).toBeUndefined();
+    });
+
+    it('allows inout ports to connect', () => {
+      const result = validatePortConnection(
+        { name: 'port', direction: 'inout', type: 'int' },
+        { name: 'in', direction: 'input', type: 'int' }
+      );
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe('getPortDirectionLabel', () => {
+    it('returns arrow for input', () => {
+      expect(getPortDirectionLabel('input')).toBe('←');
+    });
+    it('returns arrow for output', () => {
+      expect(getPortDirectionLabel('output')).toBe('→');
+    });
+    it('returns arrows for inout', () => {
+      expect(getPortDirectionLabel('inout')).toBe('↔');
+    });
+  });
+
+  describe('Node Model Validation', () => {
+    it('validates node against model', () => {
+      const node = {
+        id: 'n1',
+        type: 'MoveToGoal',
+        ports: { goal: '{target_pose}' },
+        children: [],
+      };
+      const issues = validateNode(node, [
+        { type: 'MoveToGoal', category: 'Action', ports: [{ name: 'goal', direction: 'input' as const, required: true }] }
+      ]);
+      expect(issues).toHaveLength(0);
+    });
+
+    it('detects missing required port', () => {
+      const node = {
+        id: 'n1',
+        type: 'MoveToGoal',
+        ports: {},
+        children: [],
+      };
+      const issues = validateNode(node, [
+        { type: 'MoveToGoal', category: 'Action', ports: [{ name: 'goal', direction: 'input' as const, required: true }] }
+      ]);
+      expect(issues).toHaveLength(1);
+      expect(issues[0].severity).toBe('error');
+      expect(issues[0].message).toContain('Required port');
+    });
+
+    it('validates project with multiple trees', () => {
+      const project = parseXML(SAMPLE_XML);
+      const issues = validateProject(project);
+      expect(issues.filter(i => i.severity === 'error')).toHaveLength(0);
     });
   });
 });
