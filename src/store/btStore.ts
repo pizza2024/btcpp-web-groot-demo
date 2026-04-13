@@ -69,6 +69,8 @@ interface BTStore {
     postconditions?: Record<string, string>
   ) => void;
   updateNodePortRemap: (nodeId: string, portRemap?: Record<string, string>) => void;
+  toggleNodeCollapse: (nodeId: string) => void;
+  isNodeCollapsed: (nodeId: string) => boolean;
 
   // Selection
   selectNode: (id: string | null) => void;

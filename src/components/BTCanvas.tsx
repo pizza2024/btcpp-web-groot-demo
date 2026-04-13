@@ -18,7 +18,7 @@ import { useBTStore } from '../store/btStore';
 import { treeToFlow, flowToTree, isSameTreeStructure, getDescendantIds } from '../utils/btFlow';
 
 // Count total edges (non-root nodes = one parent edge each)
-function countEdges(node: { children: Array<{ id: string }> }): number {
+function countEdges(node: BTTreeNode): number {
   return node.children.length + node.children.reduce((sum, child) => sum + countEdges(child), 0);
 }
 import { autoLayout } from '../utils/btLayout';
@@ -26,7 +26,7 @@ import { validatePortConnection } from '../utils/btXml';
 import BTFlowNode from './nodes/BTFlowNode';
 import BTFlowEdge from './edges/BTFlowEdge';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
-import type { BTNodeDefinition, BTProject, BTNodeCategory, BTPort } from '../types/bt';
+import type { BTNodeDefinition, BTProject, BTNodeCategory, BTPort, BTTreeNode } from '../types/bt';
 import { useContextMenu, type MenuConfig, type MenuItem } from './ContextMenu';
 import NodePicker from './NodePicker';
 import NodeEditModal from './NodeEditModal';
@@ -108,18 +108,14 @@ const BTCanvas: React.FC = () => {
   const {
     project,
     activeTreeId,
-    selectedNodeId,
     selectNode,
     selectedNodeIds,
-    addToSelection,
-    removeFromSelection,
     clearSelection,
     toggleSelection,
     debugState,
     addNodeModel,
     updateNodeName,
     setLocalCanvas,
-    clipboard,
     copyNode,
     pasteNode,
     pushHistory,
@@ -505,28 +501,28 @@ const BTCanvas: React.FC = () => {
       }
 
       // If no leaf error, check port type compatibility
-      if (!typeWarning && params.sourceHandleId && params.targetHandleId) {
+      if (!typeWarning && params.sourceHandle && params.targetHandle) {
         const sourceData = sourceNode.data as { nodeType: string };
         const targetData = targetNode?.data as { nodeType: string };
 
         const sourceDirection = inferPortDirection(
-          params.sourceHandleId as 'source' | 'target',
+          params.sourceHandle as 'source' | 'target',
           sourceData.nodeType,
           nodeModels
         );
         const targetDirection = inferPortDirection(
-          params.targetHandleId as 'source' | 'target',
+          params.targetHandle as 'source' | 'target',
           targetData?.nodeType ?? '',
           nodeModels
         );
 
         if (sourceDirection && targetDirection) {
-          const sourcePortDef = getPortDefinition(sourceData.nodeType, params.sourceHandleId, nodeModels);
-          const targetPortDef = getPortDefinition(targetData?.nodeType ?? '', params.targetHandleId, nodeModels);
+          const sourcePortDef = getPortDefinition(sourceData.nodeType, params.sourceHandle, nodeModels);
+          const targetPortDef = getPortDefinition(targetData?.nodeType ?? '', params.targetHandle, nodeModels);
 
           const result = validatePortConnection(
-            { name: params.sourceHandleId, direction: sourceDirection, type: sourcePortDef?.portType },
-            { name: params.targetHandleId, direction: targetDirection, type: targetPortDef?.portType }
+            { name: params.sourceHandle, direction: sourceDirection, type: sourcePortDef?.portType },
+            { name: params.targetHandle, direction: targetDirection, type: targetPortDef?.portType }
           );
           typeWarning = result.warning;
         }
@@ -538,8 +534,8 @@ const BTCanvas: React.FC = () => {
       // Build edge data with type warning info
       const edgeData: Record<string, unknown> = {
         onDelete: deleteEdge,
-        sourcePort: params.sourceHandleId ?? undefined,
-        targetPort: params.targetHandleId ?? undefined,
+        sourcePort: params.sourceHandle ?? undefined,
+        targetPort: params.targetHandle ?? undefined,
         typeWarning,
       };
 
@@ -679,7 +675,7 @@ const BTCanvas: React.FC = () => {
     // (unless Ctrl is held, in which case we want to add to selection)
   }, []);
 
-  const onSelectionEnd = useCallback(
+  const onSelectionChange = useCallback(
     (params: { nodes: Node[] }) => {
       // Update selectedNodeIds in store based on drag selection
       const selectedIds = new Set(params.nodes.map((n) => n.id));
@@ -1247,7 +1243,7 @@ const BTCanvas: React.FC = () => {
         onNodeContextMenu={onNodeContextMenu}
         onPaneContextMenu={onPaneContextMenu}
         onSelectionStart={onSelectionStart}
-        onSelectionEnd={onSelectionEnd}
+        onSelectionChange={onSelectionChange}
         selectionOnDrag
         selectionMode={SelectionMode.Partial}
         nodeTypes={nodeTypes}
@@ -1336,6 +1332,7 @@ const BTCanvas: React.FC = () => {
           preconditions?: Record<string, string>;
           postconditions?: Record<string, string>;
           description?: string;
+          portRemap?: Record<string, string>;
         };
         return (
           <NodeEditModal
