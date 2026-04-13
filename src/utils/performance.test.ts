@@ -43,7 +43,7 @@ describe('Performance Benchmarks', () => {
     expect(nodeCount).toBeGreaterThan(30);
 
     const start = performance.now();
-    const { nodes, edges } = treeToFlow(tree, []);
+    const { nodes } = treeToFlow(tree, []);
     const elapsed = performance.now() - start;
 
     expect(nodes.length).toBe(nodeCount);
@@ -57,7 +57,7 @@ describe('Performance Benchmarks', () => {
     expect(nodeCount).toBeGreaterThan(100);
 
     const start = performance.now();
-    const { nodes, edges } = treeToFlow(tree, []);
+    const { nodes } = treeToFlow(tree, []);
     const elapsed = performance.now() - start;
 
     expect(nodes.length).toBe(nodeCount);

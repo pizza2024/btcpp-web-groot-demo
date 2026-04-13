@@ -6,6 +6,7 @@ export type PortDirection = 'input' | 'output' | 'inout';
 export interface BTPort {
   name: string;
   direction: PortDirection;
+  required?: boolean;
   description?: string;
   defaultValue?: string;
   portType?: string; // int, string, bool, double, NodeStatus, Any

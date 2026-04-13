@@ -61,7 +61,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetType, menuCon
     return null;
   }
 
-  const renderItem = (item: MenuItem, isSubmenu = false) => {
+  const renderItem = (item: MenuItem) => {
     if (item.separator) {
       return <div key={item.id} className="context-menu-separator" />;
     }
@@ -79,7 +79,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetType, menuCon
           <span className="context-menu-arrow">▶</span>
           {submenuId === item.id && (
             <div className="context-menu-submenu">
-              {item.submenu.map(sub => renderItem(sub, true))}
+              {item.submenu.map(sub => renderItem(sub))}
             </div>
           )}
         </div>

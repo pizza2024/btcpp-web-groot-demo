@@ -1,13 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import Toolbar from './components/Toolbar';
 import NodePalette from './components/NodePalette';
 import BTCanvas from './components/BTCanvas';
 import TreeManager from './components/TreeManager';
-import PropertiesPanel from './components/PropertiesPanel';
-import DebugPanel from './components/DebugPanel';
-import FavoritesPanel from './components/FavoritesPanel';
 import { useBTStore } from './store/btStore';
 import './App.css';
+
+// Code-split helper panels (loaded asynchronously)
+const PropertiesPanel = React.lazy(() => import('./components/PropertiesPanel'));
+const DebugPanel = React.lazy(() => import('./components/DebugPanel'));
+const FavoritesPanel = React.lazy(() => import('./components/FavoritesPanel'));
 
 const App: React.FC = () => {
   useEffect(() => {
@@ -27,13 +29,19 @@ const App: React.FC = () => {
         {/* Canvas */}
         <div className="canvas-area">
           <BTCanvas />
-          <FavoritesPanel />
+          <Suspense fallback={null}>
+            <FavoritesPanel />
+          </Suspense>
         </div>
 
         {/* Right sidebar */}
         <div className="right-sidebar">
-          <PropertiesPanel />
-          <DebugPanel />
+          <Suspense fallback={null}>
+            <PropertiesPanel />
+          </Suspense>
+          <Suspense fallback={null}>
+            <DebugPanel />
+          </Suspense>
         </div>
       </div>
     </div>

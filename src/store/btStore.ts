@@ -36,6 +36,8 @@ interface BTStore {
   activeTreeId: string;
   selectedNodeId: string | null;
   debugState: DebugState;
+  _undoStack: BTProject[];
+  _redoStack: BTProject[];
   // Local canvas nodes/edges for lookup before they're saved to project tree
   localNodes: Node[];
   localEdges: Edge[];
@@ -339,11 +341,9 @@ export const useBTStore = create<BTStore>()(
     }
   },
 
-  deleteSelectedNodes(nodes: Node[]) {
+  deleteSelectedNodes(_nodes: Node[]) {
     const { selectedNodeIds } = get();
     const idsToDelete = new Set(selectedNodeIds);
-    const project = get().project;
-    const activeTreeId = get().activeTreeId;
 
     // For now, just clear selection - actual deletion is handled in component
     set({ selectedNodeIds: new Set(), selectedNodeId: null });

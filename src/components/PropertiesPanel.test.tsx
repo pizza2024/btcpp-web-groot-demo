@@ -1,5 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import React from 'react';
+import { describe, it, expect } from 'vitest';
 
 // Test the constants and helper logic independent of React components
 // This tests the same PRE/POST key definitions used in NodeEditModal

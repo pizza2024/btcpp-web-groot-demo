@@ -19,7 +19,7 @@ interface FavoritesPanelProps {
 
 const FavoritesPanel: React.FC<FavoritesPanelProps> = ({ onDragStart }) => {
   const { t } = useTranslation();
-  const { favorites, addFavorite, removeFavorite } = useBTStore();
+  const { favorites, removeFavorite } = useBTStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
