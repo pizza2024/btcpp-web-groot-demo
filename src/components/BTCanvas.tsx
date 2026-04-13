@@ -172,34 +172,9 @@ const BTCanvas: React.FC = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
 
   const deleteEdge = useCallback((edgeId: string) => {
-    setEdges((prev) => {
-      const edge = prev.find((e) => e.id === edgeId);
-      if (!edge) return prev;
-
-      const targetId = edge.target;
-      const remainingEdges = prev.filter((e) => e.id !== edgeId);
-
-      // Check if target has any other incoming edges
-      const hasOtherIncoming = remainingEdges.some((e) => e.target === targetId);
-
-      if (!hasOtherIncoming) {
-        // Target is now orphan - check if it's a leaf node
-        // If so, remove it along with the edge
-        setNodes((nodes) => {
-          const targetNode = nodes.find((n) => n.id === targetId);
-          const category = targetNode?.data?.category;
-          if (category === 'Action' || category === 'Condition') {
-            // Leaf node is orphan - remove it
-            return nodes.filter((n) => n.id !== targetId);
-          }
-          return nodes;
-        });
-      }
-
-      return remainingEdges;
-    });
+    setEdges((prev) => prev.filter((edge) => edge.id !== edgeId));
     setSelectedEdgeId((prev) => (prev === edgeId ? null : prev));
-  }, [setEdges, setNodes]);
+  }, [setEdges]);
 
   // ── Ctrl+Drag Subtree ──────────────────────────────────────────────────────
   // Track Ctrl key state separately via keydown/keyup so we can detect it reliably
