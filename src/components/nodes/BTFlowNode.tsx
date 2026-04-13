@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { STATUS_COLORS, BUILTIN_NODES } from '../../types/bt-constants';
@@ -31,6 +31,7 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
   const isLeaf = category === 'Action' || category === 'Condition';
   const isRootNode = isRoot === true;
   const isSubTree = category === 'SubTree';
+  const isComposite = category === 'Control' || category === 'SubTree';
 
   // SubTree preview state
   const [showPreview, setShowPreview] = useState(false);
@@ -144,68 +145,171 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
     }));
   };
 
-  // SubTree preview popup
-  const renderSubTreePreview = () => {
-    if (!isSubTree || !showPreview) return null;
+  // Composite node preview popup
+  const renderCompositePreview = () => {
+    if (!isComposite || !showPreview) return null;
 
-    // Find the referenced tree
-    const targetTree = project.trees.find(t => t.id === label);
-    if (!targetTree) return null;
-
-    // Count nodes in subtree
-    const countNodes = (node: import('../../types/bt').BTTreeNode): number => {
-      return 1 + (node.children?.reduce((sum, c) => sum + countNodes(c), 0) ?? 0);
+    // Node type icons
+    const nodeTypeIcons: Record<string, string> = {
+      Sequence: '→',
+      Fallback: '?',
+      SequenceWithMemory: '→M',
+      ReactiveSequence: '↺→',
+      ReactiveFallback: '↺?',
+      Parallel: '⫿',
+      ParallelAll: '⫿',
+      IfThenElse: '⬡',
+      WhileDoElse: '⟳',
+      TryCatch: '⏳',
+      Switch2: '⇡₂',
+      Switch3: '⇡₃',
+      Switch4: '⇡₄',
+      Switch5: '⇡₅',
+      Switch6: '⇡₆',
+      ManualSelector: '☰',
+      AsyncSequence: '→*',
+      AsyncFallback: '?*',
+      SubTree: '🌳',
     };
-    const totalNodes = countNodes(targetTree.root);
 
-    // Render mini tree structure
-    const renderMiniTree = (node: import('../../types/bt').BTTreeNode, depth: number = 0): React.ReactNode => {
-      const indent = depth * 12;
-      return (
-        <div key={node.id} style={{ paddingLeft: indent, fontSize: 10, color: 'var(--text-secondary)' }}>
-          <span style={{ color: 'var(--text-muted)' }}>{node.type}</span>
-          {node.name && node.name !== node.type && <span style={{ color: 'var(--text-primary)' }}> ({node.name})</span>}
-          {node.children?.map(child => renderMiniTree(child, depth + 1))}
-        </div>
-      );
-    };
+    const icon = nodeTypeIcons[d.nodeType] || '●';
+    const nodeDef = BUILTIN_NODES.find(n => n.type === d.nodeType);
+    const nodeDescription = nodeDef?.description || '';
+
+    // For SubTree, show tree structure preview
+    let treePreview: React.ReactNode = null;
+    if (isSubTree) {
+      const targetTree = project.trees.find(t => t.id === label);
+      if (targetTree) {
+        // Count nodes in subtree
+        const countNodes = (node: import('../../types/bt').BTTreeNode): number => {
+          return 1 + (node.children?.reduce((sum, c) => sum + countNodes(c), 0) ?? 0);
+        };
+        const totalNodes = countNodes(targetTree.root);
+
+        // Render mini tree structure
+        const renderMiniTree = (node: import('../../types/bt').BTTreeNode, depth: number = 0): React.ReactNode => {
+          const indent = depth * 12;
+          return (
+            <div key={node.id} style={{ paddingLeft: indent, fontSize: 10, color: 'var(--text-secondary)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{node.type}</span>
+              {node.name && node.name !== node.type && <span style={{ color: 'var(--text-primary)' }}> ({node.name})</span>}
+              {node.children?.map(child => renderMiniTree(child, depth + 1))}
+            </div>
+          );
+        };
+
+        treePreview = (
+          <div style={{ marginTop: 6, maxHeight: 120, overflow: 'auto' }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>
+              Tree structure ({totalNodes} nodes)
+            </div>
+            {renderMiniTree(targetTree.root)}
+          </div>
+        );
+      }
+    }
+
+    // Preconditions list
+    const preList = preconditions && Object.entries(preconditions).filter(([, v]) => v).map(([k, v]) => ({ k, v }));
 
     return (
       <div
+        ref={previewRef}
+        className="composite-preview"
         style={{
           position: 'absolute',
           left: previewPos.x,
           top: previewPos.y,
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border-color)',
-          borderRadius: 6,
-          padding: 8,
-          minWidth: 150,
-          maxWidth: 250,
-          maxHeight: 200,
+          borderRadius: 8,
+          padding: 10,
+          minWidth: 160,
+          maxWidth: 280,
+          maxHeight: 280,
           overflow: 'auto',
           zIndex: 1000,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-          fontSize: 11,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          fontSize: 12,
+          animation: 'previewFadeIn 0.2s ease-out',
         }}
       >
-        <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: 4 }}>
-          🌳 {label} ({totalNodes} nodes)
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 16 }}>{icon}</span>
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{label}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{d.nodeType}</div>
+          </div>
         </div>
-        <div style={{ maxHeight: 150, overflow: 'auto' }}>
-          {renderMiniTree(targetTree.root)}
+
+        {/* Description */}
+        {nodeDescription && (
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 6, fontStyle: 'italic' }}>
+            {nodeDescription}
+          </div>
+        )}
+
+        {/* Children count */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '4px 8px',
+          background: 'rgba(255,255,255,0.05)',
+          borderRadius: 4,
+          marginBottom: 6,
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Children:</span>
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{d.childrenCount ?? 0}</span>
         </div>
+
+        {/* Preconditions */}
+        {preList && preList.length > 0 && (
+          <div style={{ marginBottom: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>⏱ Preconditions:</div>
+            {preList.map(({ k, v }) => (
+              <div key={k} style={{ fontSize: 10, padding: '2px 6px', background: 'rgba(255,255,255,0.05)', borderRadius: 3, marginBottom: 2 }}>
+                <span style={{ color: 'var(--text-secondary)' }}>{k}:</span>{' '}
+                <span style={{ color: 'var(--accent-color, #80c0ff)' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Tree structure for SubTree */}
+        {treePreview}
       </div>
     );
   };
 
-  // Handle mouse events for SubTree preview
+  // Preview ref for DOM measurement
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Handle mouse events for composite node preview
   const handleMouseEnter = (e: React.MouseEvent) => {
-    if (isSubTree) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setPreviewPos({ x: rect.width + 8, y: -20 });
-      setShowPreview(true);
+    if (!isComposite) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nodeWidth = rect.width;
+
+    // Smart positioning: check if preview would overflow right edge of viewport
+    const viewportWidth = window.innerWidth;
+    const previewWidth = 280; // maxWidth of preview
+    const estimatedX = rect.right + 8;
+
+    let posX: number;
+    if (estimatedX + previewWidth > viewportWidth - 20) {
+      // Show on left side instead
+      posX = -nodeWidth - 8 - previewWidth;
+    } else {
+      // Show on right side (default)
+      posX = nodeWidth + 8;
     }
+
+    setPreviewPos({ x: posX, y: -10 });
+    setShowPreview(true);
   };
 
   const handleMouseLeave = () => {
@@ -453,8 +557,8 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
         />
       )}
 
-      {/* SubTree preview popup */}
-      {renderSubTreePreview()}
+      {/* Composite node preview popup */}
+      {renderCompositePreview()}
     </div>
   );
 }, (prevProps, nextProps) => {
