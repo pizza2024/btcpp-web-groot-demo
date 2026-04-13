@@ -875,18 +875,50 @@ const BTCanvas: React.FC = () => {
   }) => {
     if (!editingNodeId) return;
 
+    // Get current node data for SubTree autoremap check
+    const editingNode = nodes.find((n) => n.id === editingNodeId);
+    const editingNodeData = editingNode?.data as {
+      nodeType: string;
+      label: string;
+      ports?: Record<string, string>;
+      preconditions?: Record<string, string>;
+      postconditions?: Record<string, string>;
+      description?: string;
+      portRemap?: Record<string, string>;
+    } | undefined;
+
+    // F1.5: Auto-remap SubTree ports when __autoremap is enabled
+    let computedPortRemap = data.portRemap;
+    if (
+      editingNodeData?.nodeType === 'SubTree' &&
+      data.ports['__autoremap'] === 'true'
+    ) {
+      const { project } = useBTStore.getState();
+      const referencedTreeId = data.name;
+      const referencedTree = project.trees.find((t) => t.id === referencedTreeId);
+      if (referencedTree) {
+        // Get external ports from the referenced tree's root
+        const externalPorts = referencedTree.root.ports ?? {};
+        // Auto-remap: for each local port (except __autoremap), map to same name on external
+        const autoRemap: Record<string, string> = {};
+        Object.keys(data.ports).forEach((portName) => {
+          if (portName !== '__autoremap') {
+            // Map to same name on external tree
+            autoRemap[portName] = portName;
+          }
+        });
+        // Only use auto-remap if external ports exist and match
+        const hasExternalPorts = Object.keys(externalPorts).length > 0;
+        if (hasExternalPorts || Object.keys(autoRemap).length > 0) {
+          computedPortRemap = autoRemap;
+        }
+      }
+    }
+
     // Update local nodes state for immediate UI feedback
     setNodes((prev) => {
       const node = prev.find((n) => n.id === editingNodeId);
-      const nodeData = node?.data as {
-        nodeType: string;
-        label: string;
-        ports?: Record<string, string>;
-        preconditions?: Record<string, string>;
-        postconditions?: Record<string, string>;
-        description?: string;
-        portRemap?: Record<string, string>;
-      };
+      const nodeData = editingNodeData;
       if (!node || !nodeData) return prev;
 
       return prev.map((n) => {
@@ -900,7 +932,7 @@ const BTCanvas: React.FC = () => {
               preconditions: data.preconditions ?? nodeData.preconditions,
               postconditions: data.postconditions ?? nodeData.postconditions,
               description: data.description,
-              portRemap: data.portRemap,
+              portRemap: computedPortRemap,
             },
           };
         }
@@ -920,11 +952,11 @@ const BTCanvas: React.FC = () => {
       const { updateNodeConditions } = useBTStore.getState();
       updateNodeConditions(editingNodeId, data.preconditions, data.postconditions);
     }
-    if (data.portRemap !== undefined) {
+    if (computedPortRemap !== undefined) {
       const { updateNodePortRemap } = useBTStore.getState();
-      updateNodePortRemap(editingNodeId, data.portRemap);
+      updateNodePortRemap(editingNodeId, computedPortRemap);
     }
-  }, [editingNodeId, setNodes, updateNodeName]);
+  }, [editingNodeId, setNodes, updateNodeName, nodes]);
 
   // Navigate to and select a node from search
   const handleNodeSearchSelect = useCallback(

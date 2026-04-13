@@ -126,6 +126,34 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   };
 
   const handleSave = () => {
+    // F1.1: Re-validate all pre/post conditions before saving — block if invalid
+    const newPreErrors: Record<string, string> = {};
+    const newPostErrors: Record<string, string> = {};
+    let hasErrors = false;
+    PRE_KEYS.forEach(k => {
+      if (preCond[k].trim()) {
+        const result = validateConditionExpression(preCond[k]);
+        if (!result.valid) {
+          newPreErrors[k] = result.error || 'Invalid expression';
+          hasErrors = true;
+        }
+      }
+    });
+    POST_KEYS.forEach(k => {
+      if (postCond[k].trim()) {
+        const result = validateConditionExpression(postCond[k]);
+        if (!result.valid) {
+          newPostErrors[k] = result.error || 'Invalid expression';
+          hasErrors = true;
+        }
+      }
+    });
+    if (hasErrors) {
+      setPreCondErrors(newPreErrors);
+      setPostCondErrors(newPostErrors);
+      return; // Block save until errors are fixed
+    }
+
     // Clean up empty pre/post conditions
     const cleanPre: Record<string, string> = {};
     PRE_KEYS.forEach(k => { if (preCond[k].trim()) cleanPre[k] = preCond[k].trim(); });

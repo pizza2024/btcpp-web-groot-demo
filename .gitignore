@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# E2E 测试结果
+test-results/
+
+# Playwright 报告
+playwright-report/
+
+# 备份文件
+src/main.tsx.bak
+
+# 本地环境
+.env.local
+.env.*.local

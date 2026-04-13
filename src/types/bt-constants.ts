@@ -306,6 +306,15 @@ export const BUILTIN_NODES: BTNodeDefinition[] = [
     ],
   },
   {
+    type: 'UpdatedDecorator',
+    category: 'Decorator',
+    builtin: true,
+    description: 'Decorator that returns SUCCESS if the referenced blackboard entry was updated in the current tick, FAILURE otherwise. Simpler than EntryUpdatedDecorator which compares against a reference timestamp.',
+    ports: [
+      { name: 'entry', direction: 'input', description: 'Blackboard key to check' },
+    ],
+  },
+  {
     type: 'EntryUpdatedDecorator',
     category: 'Decorator',
     builtin: true,
