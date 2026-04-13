@@ -262,7 +262,7 @@ describe('Blackboard Expression Utilities', () => {
     it('detects invalid identifier for node type name', () => {
       const def = { type: 'Move-To-Goal', category: 'Action' as const };
       const issues = validateNodeModel(def);
-      expect(issues.some(i => i.message.includes('not a valid identifier'))).toBe(true);
+      expect(issues.some(i => i.message.includes('forbidden character'))).toBe(true);
     });
 
     it('detects duplicate node type name', () => {
@@ -304,7 +304,7 @@ describe('Blackboard Expression Utilities', () => {
         ports: [{ name: 'goal-pose', direction: 'input' as const }],
       };
       const issues = validateNodeModel(def);
-      expect(issues.some(i => i.message.includes('not a valid identifier'))).toBe(true);
+      expect(issues.some(i => i.message.includes('forbidden character'))).toBe(true);
     });
 
     it('detects invalid port type value', () => {

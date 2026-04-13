@@ -18,23 +18,19 @@ import { useBTStore } from '../store/btStore';
 import { treeToFlow, flowToTree, isSameTreeStructure, getDescendantIds } from '../utils/btFlow';
 
 // Collect all child node IDs (edges) from a tree recursively
-function collectEdgeIds(node: { id: string; children?: { id: string; children?: unknown[] }[] }): string[] {
-  if (!node.children) return [];
-  const ids: string[] = [];
-  for (const child of node.children) {
-    ids.push(child.id);
-    if (child.children) {
-      ids.push(...collectEdgeIds(child as { id: string; children?: { id: string; children?: unknown[] }[] }));
-    }
-  }
+function collectEdgeIds(node: BTTreeNode): string[] {
+  const ids: string[] = node.children.map((c) => c.id);
+  node.children.forEach((child) => {
+    ids.push(...collectEdgeIds(child));
+  });
   return ids;
 }
+import type { BTNodeDefinition, BTProject, BTNodeCategory, BTPort, BTTreeNode } from '../types/bt';
 import { autoLayout } from '../utils/btLayout';
 import { validatePortConnection } from '../utils/btXml';
 import BTFlowNode from './nodes/BTFlowNode';
 import BTFlowEdge from './edges/BTFlowEdge';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
-import type { BTNodeDefinition, BTProject, BTNodeCategory, BTPort } from '../types/bt';
 import { useContextMenu, type MenuConfig, type MenuItem } from './ContextMenu';
 import NodePicker from './NodePicker';
 import NodeEditModal from './NodeEditModal';
@@ -491,12 +487,33 @@ const BTCanvas: React.FC = () => {
       const sourceNode = nodes.find((n) => n.id === params.source);
       const targetNode = nodes.find((n) => n.id === params.target);
 
-      if (!sourceNode) {
-        return; // Invalid source node
+      if (!sourceNode || !params.source || !params.target) {
+        return; // Invalid source node or missing IDs
       }
 
       if (!isValidConnection(sourceNode, edges)) {
         return; // Connection not allowed by BT rules
+      }
+
+      // ── Cycle detection ────────────────────────────────────────────────────
+      // Detect if adding this edge would create a cycle (A→B→A pattern).
+      // We traverse FROM the target following outgoing edges; if we can reach
+      // the source, then source→target would close a loop.
+      const visited = new Set<string>();
+      const stack = [params.target];
+      while (stack.length > 0) {
+        const cur = stack.pop()!;
+        if (cur === params.source) {
+          // Would create a cycle — silently block the connection
+          return;
+        }
+        if (visited.has(cur)) continue;
+        visited.add(cur);
+        for (const edge of edges) {
+          if (edge.source === cur) {
+            stack.push(edge.target);
+          }
+        }
       }
 
       // Determine type warning for the connection
@@ -879,8 +896,12 @@ const BTCanvas: React.FC = () => {
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
         if (selectedNodeIds.size > 0) {
+          // Protect ROOT: never allow ROOT to be deleted via keyboard
+          const { localNodes } = useBTStore.getState();
+          const rootIds = new Set(localNodes.filter((n) => (n.data as { isRoot?: boolean }).isRoot).map((n) => n.id));
+          const idsToDelete = new Set([...selectedNodeIds].filter((id) => !rootIds.has(id)));
+          if (idsToDelete.size === 0) return; // Only ROOT was selected, do nothing
           useBTStore.getState().pushHistory();
-          const idsToDelete = new Set(selectedNodeIds);
           setNodes((prev) => prev.filter((n) => !idsToDelete.has(n.id)));
           setEdges((prev) => prev.filter((e) => !idsToDelete.has(e.source) && !idsToDelete.has(e.target)));
           clearSelection();

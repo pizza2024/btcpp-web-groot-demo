@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { validateConditionExpression } from '../utils/scriptExpressionParser';
 
 interface NodeEditModalProps {
   nodeId: string;
@@ -59,6 +60,8 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   // ─── Pre/Post conditions state ─────────────────────────────────────────
   const [preCond, setPreCond] = useState<Record<string, string>>({});
   const [postCond, setPostCond] = useState<Record<string, string>>({});
+  const [preCondErrors, setPreCondErrors] = useState<Record<string, string>>({});
+  const [postCondErrors, setPostCondErrors] = useState<Record<string, string>>({});
   const [description, setDescription] = useState('');
 
   // ─── Initialize ────────────────────────────────────────────────────────
@@ -89,10 +92,22 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   // ─── Handlers ───────────────────────────────────────────────────────────
   const handlePreChange = (key: string, value: string) => {
     setPreCond(prev => ({ ...prev, [key]: value }));
+    if (value.trim()) {
+      const result = validateConditionExpression(value);
+      setPreCondErrors(prev => ({ ...prev, [key]: result.valid ? '' : (result.error || 'Invalid expression') }));
+    } else {
+      setPreCondErrors(prev => ({ ...prev, [key]: '' }));
+    }
   };
 
   const handlePostChange = (key: string, value: string) => {
     setPostCond(prev => ({ ...prev, [key]: value }));
+    if (value.trim()) {
+      const result = validateConditionExpression(value);
+      setPostCondErrors(prev => ({ ...prev, [key]: result.valid ? '' : (result.error || 'Invalid expression') }));
+    } else {
+      setPostCondErrors(prev => ({ ...prev, [key]: '' }));
+    }
   };
 
   // ─── Port remap handlers ───────────────────────────────────────────────
@@ -296,7 +311,11 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
                   value={preCond[key] ?? ''}
                   onChange={(e) => handlePreChange(key, e.target.value)}
                   placeholder={key === '_while' ? '{key} == value' : '{expression}'}
+                  className={preCondErrors[key] ? 'input-error' : ''}
                 />
+                {preCondErrors[key] && (
+                  <div className="field-error">{preCondErrors[key]}</div>
+                )}
               </div>
             ))}
           </div>
@@ -315,7 +334,11 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
                   value={postCond[key] ?? ''}
                   onChange={(e) => handlePostChange(key, e.target.value)}
                   placeholder="{expression}"
+                  className={postCondErrors[key] ? 'input-error' : ''}
                 />
+                {postCondErrors[key] && (
+                  <div className="field-error">{postCondErrors[key]}</div>
+                )}
               </div>
             ))}
           </div>

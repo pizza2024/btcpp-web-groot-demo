@@ -543,6 +543,23 @@
   cursor: pointer;
 }
 
+/* Input error state — red border for invalid fields */
+input.input-error,
+input.input-error:focus {
+  border-color: #e04040 !important;
+  background: #fff0f0;
+}
+
+/* Field-level error message below input */
+.field-error {
+  font-size: 11px;
+  color: #e04040;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .form-hint {
   display: block;
   font-size: 10px;

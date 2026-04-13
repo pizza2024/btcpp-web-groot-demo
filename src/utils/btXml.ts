@@ -93,9 +93,10 @@ export function parseXML(xmlText: string): BTProject {
     throw new Error('No <BehaviorTree> elements found in XML');
   }
 
-  // Parse TreeNodesModel (optional)
+  // Parse TreeNodesModel (optional; may be direct child of root or nested in TreeConfiguration)
   const nodeModels: BTNodeDefinition[] = [];
-  const modelEl = root.querySelector(':scope > TreeNodesModel');
+  const modelEl = root.querySelector(':scope > TreeNodesModel')
+    ?? root.querySelector(':scope > TreeConfiguration > TreeNodesModel');
   if (modelEl) {
     Array.from(modelEl.children).forEach((catEl) => {
       // XML uses Action/Condition tags directly as category
@@ -227,26 +228,28 @@ export function serializeXML(project: BTProject): string {
     lines.push('  </BehaviorTree>');
   });
 
-  // TreeNodesModel — only custom (non-builtin) nodes
+  // TreeNodesModel — only custom (non-builtin) nodes, wrapped in TreeConfiguration
   const builtinTypes = new Set(BUILTIN_NODES.map((n) => n.type));
   const customModels = project.nodeModels.filter((m) => !builtinTypes.has(m.type));
 
   if (customModels.length > 0) {
-    lines.push('  <TreeNodesModel>');
+    lines.push('  <TreeConfiguration>');
+    lines.push('    <TreeNodesModel>');
     customModels.forEach((m) => {
       // Use category directly; 'Action'/'Condition' are valid XML tags
       const cat = m.category;
       if (!m.ports || m.ports.length === 0) {
-        lines.push(`    <${cat} ID="${escapeXml(m.type)}"/>`);
+        lines.push(`      <${cat} ID="${escapeXml(m.type)}"/>`);
       } else {
-        lines.push(`    <${cat} ID="${escapeXml(m.type)}">`);
+        lines.push(`      <${cat} ID="${escapeXml(m.type)}">`);
         m.ports.forEach((p) => {
-          lines.push(`      <${p.direction}_port name="${escapeXml(p.name)}">${escapeXml(p.description || '')}</${p.direction}_port>`);
+          lines.push(`        <${p.direction}_port name="${escapeXml(p.name)}">${escapeXml(p.description || '')}</${p.direction}_port>`);
         });
-        lines.push(`    </${cat}>`);
+        lines.push(`      </${cat}>`);
       }
     });
-    lines.push('  </TreeNodesModel>');
+    lines.push('    </TreeNodesModel>');
+    lines.push('  </TreeConfiguration>');
   }
 
   lines.push('</root>');
@@ -515,6 +518,84 @@ export function parseBlackboardExpression(value: string): Array<{ type: 'literal
   return segments;
 }
 
+// ─── Name Validation (blacklist approach per BT.CPP rules) ───────────────────
+
+// Forbidden characters in model names and port names (ASCII only; Unicode is allowed)
+// Based on name_validation_rules.md from btcpp-groot2-research
+const FORBIDDEN_NAME_CHARS = new Set([
+  ' ', '\t', '\n', '\r', '<', '>', '&', '"', "'", '/', '\\', ':', '*', '?', '|', '.', '-'
+]);
+
+// Reserved attribute names that cannot be used as port names
+// These are XML/BT.CPP reserved attributes
+const RESERVED_PORT_NAMES = new Set([
+  'ID', 'name', '_description', '_skipIf', '_successIf', '_failureIf',
+  '_while', '_onSuccess', '_onFailure', '_onHalted', '_post', '_autoremap', '__shared_blackboard'
+]);
+
+/**
+ * Find forbidden character in a name (for model/port names).
+ * Returns the forbidden character or null if valid.
+ * Unicode bytes (>= 0x80) are always allowed.
+ */
+function findForbiddenChar(name: string): string | null {
+  for (const c of name) {
+    const code = c.charCodeAt(0);
+    // Allow Unicode (multibyte UTF-8 will have high bits set)
+    if (code >= 0x80) continue;
+    // Block control characters (ASCII 0-31 and 127)
+    if (code < 32 || code === 127) return c;
+    // Check forbidden list
+    if (FORBIDDEN_NAME_CHARS.has(c)) return c;
+  }
+  return null;
+}
+
+/**
+ * Validate a model name (node type name).
+ * Returns an error message string if invalid, or null if valid.
+ */
+export function validateModelName(name: string): string | null {
+  const trimmed = name.trim();
+  if (!trimmed) return 'Node type name cannot be empty';
+  if (trimmed === 'Root') return 'Node type name "Root" is reserved';
+  const forbidden = findForbiddenChar(trimmed);
+  if (forbidden) return `Node type name contains forbidden character "${forbidden}"`;
+  return null;
+}
+
+/**
+ * Validate a port name.
+ * Returns an error message string if invalid, or null if valid.
+ */
+export function validatePortName(name: string): string | null {
+  const trimmed = name.trim();
+  if (!trimmed) return 'Port name cannot be empty';
+  if (/^\d/.test(trimmed)) return 'Port name cannot start with a digit';
+  if (RESERVED_PORT_NAMES.has(trimmed)) return `Port name "${trimmed}" is a reserved attribute`;
+  const forbidden = findForbiddenChar(trimmed);
+  if (forbidden) return `Port name contains forbidden character "${forbidden}"`;
+  return null;
+}
+
+/**
+ * Validate an instance name (node label in tree).
+ * More relaxed than model/port names — only control chars are forbidden.
+ * Returns an error message string if invalid, or null if valid.
+ */
+export function validateInstanceName(name: string): string | null {
+  for (const c of name) {
+    const code = c.charCodeAt(0);
+    // Allow Unicode (>= 0x80)
+    if (code >= 0x80) continue;
+    // Block control characters (ASCII 0-8, 11-12, 14-31, 127)
+    if (code < 9 || code === 11 || code === 12 || (code >= 14 && code < 32) || code === 127) {
+      return `Instance name contains invalid control character`;
+    }
+  }
+  return null;
+}
+
 // ─── Node Model Definition Validation ───────────────────────────────────────
 
 const VALID_PORT_TYPES = new Set(['', 'string', 'int', 'unsigned', 'bool', 'double', 'NodeStatus', 'Any']);
@@ -531,12 +612,11 @@ export function validateNodeModel(
   const issues: ValidationIssue[] = [];
 
   // Validate node type name
-  const trimmedType = def.type.trim();
-  if (!trimmedType) {
-    issues.push({ severity: 'error', nodeType: def.type, message: 'Node type name cannot be empty' });
-  } else if (!isValidBlackboardKey(trimmedType)) {
-    issues.push({ severity: 'error', nodeType: def.type, message: `Node type "${trimmedType}" is not a valid identifier` });
+  const modelNameError = validateModelName(def.type);
+  if (modelNameError) {
+    issues.push({ severity: 'error', nodeType: def.type, message: modelNameError });
   } else {
+    const trimmedType = def.type.trim();
     // Check for duplicate node type (case-sensitive)
     const duplicate = existingModels.find(m => m.type === trimmedType && m !== def);
     if (duplicate) {
@@ -583,12 +663,13 @@ export function validateNodeModel(
     }
     seenPortNames.add(portName);
 
-    // Validate port name is a valid identifier
-    if (!isValidBlackboardKey(portName)) {
+    // Validate port name using blacklist rules
+    const portNameError = validatePortName(portName);
+    if (portNameError) {
       issues.push({
         severity: 'error',
         nodeType: def.type,
-        message: `Port name "${portName}" is not a valid identifier`,
+        message: portNameError,
       });
     }
 
