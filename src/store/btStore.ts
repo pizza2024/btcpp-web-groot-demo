@@ -20,6 +20,30 @@ export interface DebugState {
   }>;
 }
 
+export interface Groot2State {
+  /** Whether we are connected to the Groot2 bridge */
+  connected: boolean;
+  /** Whether a connection attempt is in progress */
+  connecting: boolean;
+  /** WebSocket URL of the bridge */
+  bridgeUrl: string;
+  /** Tree UUID from the BT.CPP runtime */
+  treeId: string | null;
+  /** Node statuses from the live runtime (uid -> status) */
+  liveStatuses: Map<number, NodeStatus>;
+  /** Last error message */
+  error: string | null;
+}
+
+const defaultGroot2: Groot2State = {
+  connected: false,
+  connecting: false,
+  bridgeUrl: 'ws://localhost:8080',
+  treeId: null,
+  liveStatuses: new Map(),
+  error: null,
+};
+
 export interface FavoriteTemplate {
   id: string;
   name: string;
@@ -36,6 +60,7 @@ interface BTStore {
   activeTreeId: string;
   selectedNodeId: string | null;
   debugState: DebugState;
+  groot2State: Groot2State;
   _undoStack: BTProject[];
   _redoStack: BTProject[];
   // Local canvas nodes/edges for lookup before they're saved to project tree
@@ -43,6 +68,14 @@ interface BTStore {
   localEdges: Edge[];
   // Collapsed nodes (hidden in canvas)
   collapsedNodeIds: Set<string>;
+
+  // Groot2 real-time debugging
+  connectGroot2: (url?: string) => Promise<void>;
+  disconnectGroot2: () => void;
+  setGroot2LiveStatuses: (statuses: Map<number, NodeStatus>) => void;
+  setGroot2Connected: (connected: boolean, treeId?: string | null) => void;
+  setGroot2Connecting: (connecting: boolean) => void;
+  setGroot2Error: (error: string | null) => void;
 
   // Project actions
   loadXML: (xml: string) => void;
@@ -545,6 +578,97 @@ export const useBTStore = create<BTStore>()(
 
   debugReset() {
     set({ debugState: defaultDebug });
+  },
+
+  // ─── Groot2 real-time debugging ────────────────────────────────────────────
+
+  groot2State: defaultGroot2,
+
+  async connectGroot2(url) {
+    // Dynamic import to avoid loading the WebSocket client in SSR or if not needed
+    const { getGroot2Client } = await import('../utils/groot2Client');
+    const client = getGroot2Client(url);
+    const { setGroot2Connecting, setGroot2Connected, setGroot2Error, setGroot2LiveStatuses, groot2State } = get();
+
+    if (groot2State.connected || groot2State.connecting) {
+      get().disconnectGroot2();
+    }
+
+    setGroot2Connecting(true);
+    setGroot2Error(null);
+
+    try {
+      await client.connect();
+      setGroot2Connected(true);
+
+      // Subscribe to status updates
+      client.on((event) => {
+        if (event.type === 'status' && event.body) {
+          const statuses = new Map<number, NodeStatus>();
+          const arr = event.body.node_statuses ?? event.body.statuses ?? [];
+          for (const item of arr as Array<{ uid: number; status: NodeStatus }>) {
+            if (item.uid !== undefined) {
+              statuses.set(item.uid, item.status ?? 'IDLE');
+            }
+          }
+          setGroot2LiveStatuses(statuses);
+        }
+        if (event.type === 'tree' && event.treeId) {
+          setGroot2Connected(true, event.treeId);
+        }
+        if (event.type === 'disconnected') {
+          setGroot2Connected(false);
+          setGroot2LiveStatuses(new Map());
+        }
+        if (event.type === 'error' && event.error) {
+          setGroot2Error(event.error);
+        }
+      });
+
+      // Initial fetch of tree and status
+      try {
+        const tree = await client.getTree();
+        setGroot2Connected(true, tree.treeId);
+      } catch { /* tree fetch may fail if runtime not ready */ }
+
+      // Subscribe to live status updates
+      client.send('subscribe', { topic: 'status' });
+    } catch (e) {
+      const err = e instanceof Error ? e.message : 'Connection failed';
+      setGroot2Error(err);
+      setGroot2Connecting(false);
+      throw e;
+    }
+  },
+
+  disconnectGroot2() {
+    const { getGroot2Client } = get();
+    // We can't directly call the client's disconnect from here since it's not in state
+    // Use resetGroot2Client instead
+    import('../utils/groot2Client').then(({ resetGroot2Client }) => {
+      resetGroot2Client();
+    });
+    set({ groot2State: defaultGroot2 });
+  },
+
+  setGroot2LiveStatuses(statuses) {
+    const { groot2State } = get();
+    set({ groot2State: { ...groot2State, liveStatuses: statuses } });
+  },
+
+  setGroot2Connected(connected, treeId = null) {
+    const { groot2State } = get();
+    set({ groot2State: { ...groot2State, connected, connecting: false, treeId: treeId ?? groot2State.treeId } });
+  },
+
+  setGroot2Connecting(connecting) {
+    const { groot2State } = get();
+    set({ groot2State: { ...groot2State, connecting } });
+  },
+
+  setGroot2Error(error) {
+    const { groot2State } = get();
+    set({ groot2State: { ...groot2State, error } });
   },
 }),
     {
