@@ -558,7 +558,8 @@ const BTCanvas: React.FC = () => {
 
       // Check if target is a leaf node (can't accept children)
       if (targetNode) {
-        typeWarning = checkLeafTargetConnection(params.target!, nodes);
+        const leafError = checkLeafTargetConnection(params.target!, nodes);
+        if (leafError) return; // Block connection to leaf nodes
       }
 
       // If no leaf error, check port type compatibility
