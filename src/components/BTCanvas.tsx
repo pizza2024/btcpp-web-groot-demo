@@ -101,10 +101,15 @@ function buildFlowNodes(
   if (!tree) return { nodes: [], edges: [] };
   let { nodes, edges } = treeToFlow(tree, project.nodeModels);
   nodes = autoLayout(nodes, edges);
-  // Inject debug statuses
+  // Inject debug statuses into nodes
   nodes = nodes.map((n) => ({
     ...n,
     data: { ...n.data, status: debugStatuses.get(n.id) ?? 'IDLE' },
+  }));
+  // Inject target node status into edges (for RUNNING edge animation)
+  edges = edges.map((e) => ({
+    ...e,
+    data: { ...e.data, targetStatus: debugStatuses.get(e.target) ?? 'IDLE' },
   }));
   return { nodes, edges };
 }
@@ -401,7 +406,12 @@ const BTCanvas: React.FC = () => {
         const detachedToRestore = nodes.filter((n) => detachedNodeIds.has(n.id) && !attachedIds.has(n.id));
         return [...merged, ...detachedToRestore];
       });
-      setEdges(withSelectedEdge(newEdges, selectedEdgeId, deleteEdge));
+      // Inject target node status into edges for RUNNING animation
+      const edgesWithStatus = newEdges.map((e) => ({
+        ...e,
+        data: { ...e.data, targetStatus: debugState.nodeStatuses.get(e.target) ?? 'IDLE' },
+      }));
+      setEdges(withSelectedEdge(edgesWithStatus, selectedEdgeId, deleteEdge));
     }
   }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds, detachedNodeIds, nodes]);
 
@@ -593,12 +603,13 @@ const BTCanvas: React.FC = () => {
       useBTStore.getState().pushHistory();
       setSelectedEdgeId(null);
 
-      // Build edge data with type warning info
+      // Build edge data with type warning info and target node status (for RUNNING animation)
       const edgeData: Record<string, unknown> = {
         onDelete: deleteEdge,
         sourcePort: params.sourceHandle ?? undefined,
         targetPort: params.targetHandle ?? undefined,
         typeWarning,
+        targetStatus: targetNode ? (debugState.nodeStatuses.get(targetNode.id) ?? 'IDLE') : 'IDLE',
       };
 
       setEdges((eds) => withSelectedEdge(
@@ -612,7 +623,7 @@ const BTCanvas: React.FC = () => {
         deleteEdge
       ));
     },
-    [deleteEdge, setEdges, nodes, edges, isValidConnection, project.nodeModels]
+    [deleteEdge, setEdges, nodes, edges, isValidConnection, project.nodeModels, debugState.nodeStatuses]
   );
 
   // Handle incomplete connection (drag ended without connecting to target)

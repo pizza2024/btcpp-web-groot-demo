@@ -1052,3 +1052,22 @@ input.input-error:focus {
   opacity: 0.6;
   font-size: 9px;
 }
+
+
+/* ─── Debug Edge Animation ───────────────────────────────────────── */
+/* RUNNING edges: dashed animation showing execution flow */
+.bt-edge-running path {
+  stroke: var(--bt-edge-running, #44aaff) !important;
+  stroke-dasharray: 6 3;
+  animation: bt-edge-running-dash 0.8s linear infinite;
+}
+
+@keyframes bt-edge-running-dash {
+  from {
+    stroke-dashoffset: 18;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
