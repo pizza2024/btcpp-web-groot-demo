@@ -6,6 +6,7 @@ export type PortDirection = 'input' | 'output' | 'inout';
 export interface BTPort {
   name: string;
   direction: PortDirection;
+  required?: boolean;
   description?: string;
   defaultValue?: string;
   portType?: string; // int, string, bool, double, NodeStatus, Any
@@ -31,6 +32,8 @@ export interface BTTreeNode {
   postconditions?: Record<string, string>;  // _onSuccess, _onFailure, _onHalted, _post
   // Instance-level description note
   description?: string;
+  // SubTree port remapping: "local_port": "external_port"
+  portRemap?: Record<string, string>;
 }
 
 export interface BTTree {

@@ -1,0 +1,166 @@
+const zh = {
+  // Toolbar
+  toolbar: {
+    sample: '示例',
+    delete: '删除',
+    undo: '撤销',
+    redo: '重做',
+    exportXml: '导出 XML',
+    importXml: '导入 XML',
+    exportPng: '导出 PNG',
+    theme: '主题',
+    dark: '深色',
+    light: '浅色',
+    help: '帮助',
+  },
+  // Context menu
+  contextMenu: {
+    addChild: '添加子节点',
+    edit: '编辑',
+    delete: '删除',
+    duplicate: '复制',
+    copy: '复制',
+    paste: '粘贴',
+    convertToSubtree: '转换为子树',
+  },
+  // Properties panel
+  properties: {
+    panel: '属性',
+    name: '名称',
+    ports: '端口',
+    parameters: '参数',
+    preconditions: '前置条件',
+    postconditions: '后置条件',
+    apply: '应用',
+    save: '保存',
+    cancel: '取消',
+    nodeType: '节点类型',
+    category: '类别',
+    description: '描述',
+    required: '必填',
+    optional: '可选',
+    selectNode: '在画布上选择一个节点来查看其属性',
+    optionalAlias: '可选别名',
+    subtreeTarget: '子树目标',
+    selectTree: '-- 选择树 --',
+    availableTrees: '可用树: {{trees}}',
+    portValues: '端口值',
+    portDescription: '使用黑板引用 {key}',
+    preconditionsDescription: 'tick 前求值',
+    postconditionsDescription: 'tick 后执行脚本',
+  },
+  // Node edit modal
+  nodeEdit: {
+    editNode: '编辑节点',
+    createNode: '创建节点',
+    nodeName: '节点名称',
+    selectModel: '选择模型',
+    portSettings: '端口设置',
+    inputPorts: '输入端口',
+    outputPorts: '输出端口',
+    addPort: '添加端口',
+    removePort: '删除端口',
+    portName: '端口名称',
+    portType: '端口类型',
+    save: '保存',
+    close: '关闭',
+  },
+  // Precondition/Postcondition keys
+  conditions: {
+    failureIf: '失败条件',
+    successIf: '成功条件',
+    skipIf: '跳过条件',
+    while: '当条件',
+    onSuccess: '成功后',
+    onFailure: '失败后',
+    onHalted: '中止后',
+    post: '后置(任意)',
+  },
+  // Toast messages
+  toast: {
+    exportSuccess: '树导出成功',
+    importSuccess: '树导入成功',
+    copySuccess: '节点已复制到剪贴板',
+    pasteSuccess: '节点已从剪贴板粘贴',
+    deleteSuccess: '节点已删除',
+    undoSuccess: '已撤销',
+    redoSuccess: '已重做',
+    saveSuccess: '保存成功',
+    error: '发生错误',
+  },
+  // Help
+  help: {
+    title: '键盘快捷键',
+    categories: {
+      general: '常规',
+      selection: '选择',
+      editing: '编辑',
+      navigation: '导航',
+    },
+    shortcuts: {
+      showHelp: '显示键盘快捷键',
+      exportXml: '导出树为 XML',
+      undo: '撤销',
+      redo: '重做',
+      selectAll: '选择所有节点',
+      copy: '复制选中节点',
+      paste: '粘贴节点',
+      delete: '删除选中节点',
+      zoomIn: '放大',
+      zoomOut: '缩小',
+      resetZoom: '重置缩放',
+      fitView: '适应视图',
+      selectAllNodes: '选择所有节点',
+      deselect: '取消选择',
+      nudgeUp: '上移',
+      nudgeDown: '下移',
+      nudgeLeft: '左移',
+      nudgeRight: '右移',
+    },
+  },
+  // Canvas
+  canvas: {
+    dragHint: '从面板拖动节点到画布 · 连接节点 · 双击重命名',
+    treeLabel: '树',
+    mainTree: '主树',
+  },
+  // Tree manager
+  treeManager: {
+    panel: '行为树',
+    delete: '删除',
+    newTreePlaceholder: '新树名称',
+  },
+  // Node palette
+  palette: {
+    searchPlaceholder: '搜索模型...',
+    searchNodesPlaceholder: '搜索节点...',
+    noNodesFound: '未找到节点',
+    categories: {
+      actions: '动作',
+      conditions: '条件',
+      decorators: '装饰器',
+      trees: '树',
+    },
+  },
+  // Validation messages
+  validation: {
+    requiredPort: '缺少必需端口',
+    invalidBlackboardKey: '无效的黑板键',
+    portTypeMismatch: '端口类型不匹配',
+  },
+  // Language
+  language: {
+    switch: '语言',
+    en: 'English',
+    zh: '中文',
+  },
+  // Favorites/Templates
+  favorites: {
+    title: '收藏夹',
+    empty: '暂无收藏\n右键节点即可收藏',
+    remove: '移除',
+    hint: '拖动到画布使用',
+  },
+};
+
+export default zh;

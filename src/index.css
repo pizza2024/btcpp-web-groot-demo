@@ -4,14 +4,53 @@
   padding: 0;
 }
 
+:root {
+  /* Dark theme (default) */
+  --bg-primary: #0f0f1e;
+  --bg-secondary: #12121f;
+  --bg-tertiary: #1a1a2e;
+  --bg-hover: #1e2840;
+  --bg-active: #1e3a6e;
+  --border-color: #1e2840;
+  --border-light: #334;
+  --text-primary: #ccd;
+  --text-secondary: #aabbd0;
+  --text-muted: #5566aa;
+  --text-link: #c8e0ff;
+  --text-danger: #e04040;
+  --text-warning: #e08080;
+  --scrollbar-track: #0f0f1e;
+  --scrollbar-thumb: #2a3a5a;
+}
+
+:root.theme-light {
+  /* Light theme */
+  --bg-primary: #f5f5f7;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e8e8ec;
+  --bg-hover: #e0e0e6;
+  --bg-active: #d0d0e0;
+  --border-color: #d0d0d8;
+  --border-light: #e0e0e8;
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a4a6e;
+  --text-muted: #8888aa;
+  --text-link: #3a5a9a;
+  --text-danger: #c03030;
+  --text-warning: #a05050;
+  --scrollbar-track: #f0f0f4;
+  --scrollbar-thumb: #c0c0d0;
+}
+
 html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0f0f1e;
-  color: #ccd;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
   font-size: 13px;
+  transition: background 0.2s, color 0.2s;
 }
 
 button {
@@ -27,6 +66,22 @@ input, select, textarea {
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0f0f1e; }
-::-webkit-scrollbar-thumb { background: #2a3a5a; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3a5080; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Composite node preview fade-in animation */
+@keyframes previewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.composite-preview {
+  animation: previewFadeIn 0.2s ease-out;
+}

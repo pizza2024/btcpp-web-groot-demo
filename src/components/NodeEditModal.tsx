@@ -9,6 +9,7 @@ interface NodeEditModalProps {
   preconditions?: Record<string, string>;
   postconditions?: Record<string, string>;
   description?: string;
+  portRemap?: Record<string, string>;
   availableTrees?: string[];
   onSave: (data: {
     name?: string;
@@ -16,6 +17,7 @@ interface NodeEditModalProps {
     preconditions?: Record<string, string>;
     postconditions?: Record<string, string>;
     description?: string;
+    portRemap?: Record<string, string>;
   }) => void;
   onClose: () => void;
 }
@@ -40,7 +42,7 @@ const POST_LABELS: Record<string, string> = {
 
 const NodeEditModal: React.FC<NodeEditModalProps> = ({
   nodeId, nodeType, nodeCategory, nodeName, ports, preconditions = {}, postconditions = {},
-  description: initialDescription = '',
+  description: initialDescription = '', portRemap = {},
   availableTrees = [], onSave, onClose
 }) => {
   const isSubTree = nodeType === 'SubTree';
@@ -50,6 +52,9 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const [instanceName, setInstanceName] = useState(nodeName ?? '');
   const [subTreeTarget, setSubTreeTarget] = useState(isSubTree ? (nodeName ?? '') : '');
   const [autoRemap, setAutoRemap] = useState(ports['__autoremap'] === 'true' || ports['__autoremap'] === '1');
+  const [portRemapEntries, setPortRemapEntries] = useState<Array<{ local: string; external: string }>>(
+    Object.entries(portRemap).map(([k, v]) => ({ local: k, external: v }))
+  );
 
   // ─── Pre/Post conditions state ─────────────────────────────────────────
   const [preCond, setPreCond] = useState<Record<string, string>>({});
@@ -74,7 +79,12 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
     // Description
     setDescription(initialDescription ?? '');
-  }, [nodeId]);
+
+    // Port remap entries
+    setPortRemapEntries(
+      Object.entries(portRemap).map(([k, v]) => ({ local: k, external: v }))
+    );
+  }, [nodeId, portRemap]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────
   const handlePreChange = (key: string, value: string) => {
@@ -83,6 +93,21 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
   const handlePostChange = (key: string, value: string) => {
     setPostCond(prev => ({ ...prev, [key]: value }));
+  };
+
+  // ─── Port remap handlers ───────────────────────────────────────────────
+  const addPortRemap = () => {
+    setPortRemapEntries(prev => [...prev, { local: '', external: '' }]);
+  };
+
+  const updatePortRemap = (index: number, field: 'local' | 'external', value: string) => {
+    setPortRemapEntries(prev => prev.map((entry, i) =>
+      i === index ? { ...entry, [field]: value } : entry
+    ));
+  };
+
+  const removePortRemap = (index: number) => {
+    setPortRemapEntries(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = () => {
@@ -101,12 +126,21 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
       name = instanceName;
     }
 
+    // Build portRemap object from entries
+    const cleanPortRemap: Record<string, string> = {};
+    portRemapEntries.forEach(({ local, external }) => {
+      if (local.trim() && external.trim()) {
+        cleanPortRemap[local.trim()] = external.trim();
+      }
+    });
+
     onSave({
       name,
       ports, // Pass ports through unchanged
       preconditions: Object.keys(cleanPre).length > 0 ? cleanPre : undefined,
       postconditions: Object.keys(cleanPost).length > 0 ? cleanPost : undefined,
       description: description.trim() || undefined,
+      portRemap: Object.keys(cleanPortRemap).length > 0 ? cleanPortRemap : undefined,
     });
     onClose();
   };
@@ -190,6 +224,50 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* ─── Port Remap Section (SubTree only) ────────────────────────────── */}
+          {isSubTree && !autoRemap && (
+            <div className="edit-section">
+              <div className="edit-section-title">
+                Port Mapping
+                <button type="button" className="btn-small" onClick={addPortRemap} style={{ marginLeft: 8 }}>
+                  + Add Mapping
+                </button>
+              </div>
+              <span className="form-hint" style={{ marginBottom: 8, display: 'block' }}>
+                Map local port names to external (child tree) port names: local_port := external_port
+              </span>
+              {portRemapEntries.length === 0 && (
+                <div className="form-hint" style={{ color: '#8899bb' }}>No port mappings configured</div>
+              )}
+              {portRemapEntries.map((entry, index) => (
+                <div key={index} className="form-row" style={{ alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="text"
+                    value={entry.local}
+                    onChange={(e) => updatePortRemap(index, 'local', e.target.value)}
+                    placeholder="local_port"
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ color: '#4a80d0' }}>:=</span>
+                  <input
+                    type="text"
+                    value={entry.external}
+                    onChange={(e) => updatePortRemap(index, 'external', e.target.value)}
+                    placeholder="external_port"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-small btn-danger"
+                    onClick={() => removePortRemap(index)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ─── Description Section ─────────────────────────────────────── */}
           <div className="edit-section">

@@ -47,7 +47,7 @@ describe('treeToFlow', () => {
     expect(edges[0]).toMatchObject({
       source: 'root',
       target: 'leaf-1',
-      type: 'smoothstep',
+      type: 'btEdge',
     });
   });
 });
@@ -109,59 +109,49 @@ describe('flowToTree', () => {
     expect(() => flowToTree('TreeCycle', nodes, edges)).toThrow('No root node found');
   });
 
-  it('throws when multiple roots are present', () => {
+  it('picks ROOT-type node when multiple roots exist (e.g. after edge deletion)', () => {
+    // After deleting an edge from ROOT->child, both ROOT and child become roots.
+    // flowToTree should prefer the ROOT-type node so the correct tree is saved.
     const nodes: Node[] = [
-      {
-        id: 'root-a',
-        type: 'btNode',
-        position: { x: 0, y: 0 },
-        data: { nodeType: 'Sequence', label: 'Sequence', ports: {} },
-      },
-      {
-        id: 'root-b',
-        type: 'btNode',
-        position: { x: 0, y: 0 },
-        data: { nodeType: 'Fallback', label: 'Fallback', ports: {} },
-      },
+      { id: 'root-a', type: 'btNode', position: { x: 0, y: 0 }, data: { nodeType: 'Sequence', label: 'Sequence', ports: {} } },
+      { id: 'root-b', type: 'btNode', position: { x: 0, y: 0 }, data: { nodeType: 'ROOT', label: 'ROOT', ports: {} } },
+      { id: 'child1', type: 'btNode', position: { x: 0, y: 0 }, data: { nodeType: 'Action', label: 'Action', ports: {} } },
     ];
-
-    expect(() => flowToTree('TreeMultiRoot', nodes, [])).toThrow('Multiple root nodes found');
+    // root-b->child1 edge exists; no edges to root-a (it's disconnected)
+    const edges: Edge[] = [
+      { id: 'e1', source: 'root-b', target: 'child1' },
+    ];
+    // root-a and root-b both have no incoming edges
+    // Should pick root-b (ROOT-type) as the tree root
+    const tree = flowToTree('TreeMultiRoot', nodes, edges);
+    expect(tree.root.id).toBe('root-b');
+    expect(tree.root.children).toHaveLength(1);
+    expect(tree.root.children[0].id).toBe('child1');
   });
 
-  it('throws when disconnected nodes exist', () => {
+  it('builds tree from reachable nodes when disconnected nodes exist', () => {
+    // When disconnected nodes exist (e.g. orphan subtree after edge deletion),
+    // flowToTree should NOT throw. It builds from reachable nodes and ignores orphans.
+    // Setup: Two disconnected subtrees - one rooted at orphan-root (with child),
+    // and one at unreachable-root (with child). Neither has incoming edges.
+    // The first root-like node in the array is picked as tree root.
     const nodes: Node[] = [
-      {
-        id: 'root',
-        type: 'btNode',
-        position: { x: 0, y: 0 },
-        data: { nodeType: 'Sequence', label: 'Sequence', ports: {} },
-      },
-      {
-        id: 'child',
-        type: 'btNode',
-        position: { x: 0, y: 0 },
-        data: { nodeType: 'Action', label: 'Action', ports: {} },
-      },
-      {
-        id: 'd1',
-        type: 'btNode',
-        position: { x: 0, y: 0 },
-        data: { nodeType: 'Action', label: 'Action', ports: {} },
-      },
-      {
-        id: 'd2',
-        type: 'btNode',
-        position: { x: 0, y: 0 },
-        data: { nodeType: 'Action', label: 'Action', ports: {} },
-      },
+      { id: 'orphan-root', type: 'btNode', position: { x: 0, y: 0 }, data: { nodeType: 'Sequence', label: 'Sequence', ports: {} } },
+      { id: 'orphan-child', type: 'btNode', position: { x: 0, y: 0 }, data: { nodeType: 'Action', label: 'Action', ports: {} } },
+      { id: 'unreachable-root', type: 'btNode', position: { x: 0, y: 0 }, data: { nodeType: 'Fallback', label: 'Fallback', ports: {} } },
     ];
+    // Only orphan-root->orphan-child edge; unreachable-root is truly orphaned
     const edges: Edge[] = [
-      { id: 'e1', source: 'root', target: 'child' },
-      { id: 'e2', source: 'd1', target: 'd2' },
-      { id: 'e3', source: 'd2', target: 'd1' },
+      { id: 'e1', source: 'orphan-root', target: 'orphan-child' },
     ];
 
-    expect(() => flowToTree('TreeDisconnected', nodes, edges)).toThrow('Disconnected nodes found');
+    // Should NOT throw - orphan-root is picked (no incoming edges, first such node)
+    const tree = flowToTree('TreeDisconnected', nodes, edges);
+    expect(tree.id).toBe('TreeDisconnected');
+    expect(tree.root.id).toBe('orphan-root');
+    expect(tree.root.children).toHaveLength(1);
+    expect(tree.root.children[0].id).toBe('orphan-child');
+    // unreachable-root is silently excluded (not connected to tree root)
   });
 });
 

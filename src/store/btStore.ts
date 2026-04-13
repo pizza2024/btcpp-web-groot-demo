@@ -20,14 +20,29 @@ export interface DebugState {
   }>;
 }
 
+export interface FavoriteTemplate {
+  id: string;
+  name: string;
+  type: string;
+  ports?: Record<string, string>;
+  preconditions?: Record<string, string>;
+  postconditions?: Record<string, string>;
+  category: string;
+  createdAt: number;
+}
+
 interface BTStore {
   project: BTProject;
   activeTreeId: string;
   selectedNodeId: string | null;
   debugState: DebugState;
+  _undoStack: BTProject[];
+  _redoStack: BTProject[];
   // Local canvas nodes/edges for lookup before they're saved to project tree
   localNodes: Node[];
   localEdges: Edge[];
+  // Collapsed nodes (hidden in canvas)
+  collapsedNodeIds: Set<string>;
 
   // Project actions
   loadXML: (xml: string) => void;
@@ -55,15 +70,48 @@ interface BTStore {
     preconditions?: Record<string, string>,
     postconditions?: Record<string, string>
   ) => void;
+  updateNodePortRemap: (nodeId: string, portRemap?: Record<string, string>) => void;
+  toggleNodeCollapse: (nodeId: string) => void;
+  isNodeCollapsed: (nodeId: string) => boolean;
 
   // Selection
   selectNode: (id: string | null) => void;
+  selectedNodeIds: Set<string>;
+  addToSelection: (id: string) => void;
+  removeFromSelection: (id: string) => void;
+  clearSelection: () => void;
+  setSelectedNodes: (ids: Set<string>) => void;
+  toggleSelection: (id: string) => void;
+  deleteSelectedNodes: (nodes: Node[]) => void;
+
+  // Clipboard (copy/paste)
+  clipboard: { node: Node; offsetX: number; offsetY: number } | null;
+  copyNode: (node: Node) => void;
+  pasteNode: () => Node | null;
+
+  // Theme
+  theme: 'dark' | 'light';
+  toggleTheme: () => void;
+  initTheme: () => void;
+
+  // Undo/Redo actions
+  pushHistory: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
 
   // Debug actions
   loadDebugLog: (text: string) => void;
   debugStep: (direction: 'forward' | 'back') => void;
   debugPlay: () => void;
   debugReset: () => void;
+
+  // Favorites/Templates
+  favorites: FavoriteTemplate[];
+  addFavorite: (template: Omit<FavoriteTemplate, 'id' | 'createdAt'>) => void;
+  removeFavorite: (id: string) => void;
+  updateFavorite: (id: string, name: string) => void;
 }
 
 const defaultDebug: DebugState = {
@@ -83,6 +131,80 @@ export const useBTStore = create<BTStore>()(
   debugState: defaultDebug,
   localNodes: [],
   localEdges: [],
+  collapsedNodeIds: new Set<string>(),
+  // Undo/Redo history
+  _undoStack: [] as BTProject[],
+  _redoStack: [] as BTProject[],
+  // Favorites/Templates
+  favorites: [] as FavoriteTemplate[],
+
+  addFavorite(template) {
+    const { favorites } = get();
+    const newFavorite: FavoriteTemplate = {
+      ...template,
+      id: `fav_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: Date.now(),
+    };
+    set({ favorites: [...favorites, newFavorite] });
+  },
+
+  removeFavorite(id) {
+    const { favorites } = get();
+    set({ favorites: favorites.filter((f) => f.id !== id) });
+  },
+
+  updateFavorite(id, name) {
+    const { favorites } = get();
+    set({
+      favorites: favorites.map((f) => (f.id === id ? { ...f, name } : f)),
+    });
+  },
+
+  pushHistory() {
+    const { project, _undoStack } = get();
+    // Deep clone the project to save as history
+    const snapshot = JSON.parse(JSON.stringify(project));
+    const newStack = _undoStack.slice(-49); // Keep max 50 items
+    set({ _undoStack: [...newStack, snapshot], _redoStack: [] });
+  },
+
+  undo() {
+    const { _undoStack, project } = get();
+    if (_undoStack.length === 0) return;
+    const previous = _undoStack[_undoStack.length - 1];
+    const newStack = _undoStack.slice(0, -1);
+    // Save current to redo stack
+    const currentSnapshot = JSON.parse(JSON.stringify(project));
+    set({
+      project: previous,
+      _undoStack: newStack,
+      _redoStack: [...get()._redoStack, currentSnapshot],
+      selectedNodeId: null,
+    });
+  },
+
+  redo() {
+    const { _redoStack, project } = get();
+    if (_redoStack.length === 0) return;
+    const next = _redoStack[_redoStack.length - 1];
+    const newStack = _redoStack.slice(0, -1);
+    // Save current to undo stack
+    const currentSnapshot = JSON.parse(JSON.stringify(project));
+    set({
+      project: next,
+      _undoStack: [...get()._undoStack, currentSnapshot],
+      _redoStack: newStack,
+      selectedNodeId: null,
+    });
+  },
+
+  canUndo() {
+    return get()._undoStack.length > 0;
+  },
+
+  canRedo() {
+    return get()._redoStack.length > 0;
+  },
 
   setLocalCanvas(nodes, edges) {
     set({ localNodes: nodes, localEdges: edges });
@@ -183,7 +305,118 @@ export const useBTStore = create<BTStore>()(
   },
 
   selectNode(id) {
-    set({ selectedNodeId: id });
+    set({ selectedNodeId: id, selectedNodeIds: id ? new Set([id]) : new Set() });
+  },
+
+  selectedNodeIds: new Set<string>(),
+
+  addToSelection(id) {
+    const { selectedNodeIds } = get();
+    const newSet = new Set(selectedNodeIds);
+    newSet.add(id);
+    set({ selectedNodeIds: newSet, selectedNodeId: id });
+  },
+
+  removeFromSelection(id) {
+    const { selectedNodeIds } = get();
+    const newSet = new Set(selectedNodeIds);
+    newSet.delete(id);
+    set({ selectedNodeIds: newSet });
+  },
+
+  clearSelection() {
+    set({ selectedNodeIds: new Set(), selectedNodeId: null });
+  },
+
+  setSelectedNodes(ids: Set<string>) {
+    set({ selectedNodeIds: ids, selectedNodeId: ids.size === 1 ? Array.from(ids)[0] : null });
+  },
+
+  toggleSelection(id) {
+    const { selectedNodeIds } = get();
+    if (selectedNodeIds.has(id)) {
+      get().removeFromSelection(id);
+    } else {
+      get().addToSelection(id);
+    }
+  },
+
+  deleteSelectedNodes(_nodes: Node[]) {
+    const { selectedNodeIds } = get();
+    const idsToDelete = new Set(selectedNodeIds);
+
+    // For now, just clear selection - actual deletion is handled in component
+    set({ selectedNodeIds: new Set(), selectedNodeId: null });
+    return idsToDelete;
+  },
+
+  // Toggle node collapse (hide/show descendants)
+  toggleNodeCollapse(nodeId: string) {
+    const { collapsedNodeIds } = get();
+    const newSet = new Set(collapsedNodeIds);
+    if (newSet.has(nodeId)) {
+      newSet.delete(nodeId);
+    } else {
+      newSet.add(nodeId);
+    }
+    set({ collapsedNodeIds: newSet });
+  },
+
+  // Check if node is collapsed
+  isNodeCollapsed(nodeId: string): boolean {
+    return get().collapsedNodeIds.has(nodeId);
+  },
+
+  clipboard: null,
+
+  copyNode(node) {
+    set({ clipboard: { node, offsetX: 50, offsetY: 50 } });
+  },
+
+  pasteNode() {
+    const { clipboard } = get();
+    if (!clipboard) return null;
+
+    const { node } = clipboard;
+    const newId = `n_${Math.random().toString(36).slice(2, 9)}`;
+    const newNode: Node = {
+      ...node,
+      id: newId,
+      position: {
+        x: node.position.x + clipboard.offsetX,
+        y: node.position.y + clipboard.offsetY,
+      },
+      selected: false,
+      data: { ...node.data },
+    };
+
+    // Update clipboard offset for next paste
+    set({
+      clipboard: { ...clipboard, offsetX: clipboard.offsetX + 20, offsetY: clipboard.offsetY + 20 },
+    });
+
+    return newNode;
+  },
+
+  theme: (localStorage.getItem('bt-theme') as 'dark' | 'light') || 'dark',
+
+  toggleTheme() {
+    const newTheme = get().theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('bt-theme', newTheme);
+    if (newTheme === 'light') {
+      document.documentElement.classList.add('theme-light');
+    } else {
+      document.documentElement.classList.remove('theme-light');
+    }
+    set({ theme: newTheme });
+  },
+
+  initTheme() {
+    const saved = localStorage.getItem('bt-theme') as 'dark' | 'light' | null;
+    if (saved === 'light') {
+      document.documentElement.classList.add('theme-light');
+    }
+    set({ theme: saved || 'dark' });
   },
 
   updateNodePorts(nodeId, ports) {
@@ -213,21 +446,56 @@ export const useBTStore = create<BTStore>()(
     set({ project: { ...project, trees } });
   },
 
+  updateNodePortRemap(nodeId, portRemap) {
+    const { project, activeTreeId } = get();
+    const trees = project.trees.map((tree) => {
+      if (tree.id !== activeTreeId) return tree;
+      return { ...tree, root: updateNodePortRemapRecursive(tree.root, nodeId, portRemap) };
+    });
+    set({ project: { ...project, trees } });
+  },
+
   loadDebugLog(text) {
-    // Expected format (one per line):
-    // timestamp nodeUid nodeType nodeName status [treeId]
-    // e.g.: 100 1 Sequence Root RUNNING MainTree
-    const entries = text.trim().split('\n').map((line) => {
-      const parts = line.trim().split(/\s+/);
-      return {
-        timestamp: parseInt(parts[0] ?? '0', 10),
-        nodeUid: parseInt(parts[1] ?? '0', 10),
-        nodeType: parts[2] ?? 'Unknown',
-        nodeName: parts[3] ?? 'Unknown',
-        status: (parts[4] ?? 'IDLE') as NodeStatus,
-        treeId: parts[5] ?? get().activeTreeId,
-      };
-    }).filter((e) => e.nodeType !== '');
+    // Support both text format and JSON format
+    // Text format (one per line):
+    //   timestamp nodeUid nodeType nodeName status [treeId]
+    //   e.g.: 100 1 Sequence Root RUNNING MainTree
+    // JSON format:
+    //   [{ "timestamp": 100, "nodeUid": 1, "nodeType": "Sequence", "nodeName": "Root", "status": "RUNNING", "treeId": "MainTree" }, ...]
+    
+    let entries: DebugState['entries'] = [];
+    const trimmed = text.trim();
+    
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      // JSON format
+      try {
+        const json = JSON.parse(trimmed);
+        const arr = Array.isArray(json) ? json : [json];
+        entries = arr.map((item: { timestamp?: number; nodeUid?: number; nodeType?: string; nodeName?: string; status?: string; treeId?: string }) => ({
+          timestamp: item.timestamp ?? 0,
+          nodeUid: item.nodeUid ?? 0,
+          nodeType: item.nodeType ?? 'Unknown',
+          nodeName: item.nodeName ?? 'Unknown',
+          status: (item.status ?? 'IDLE') as NodeStatus,
+          treeId: item.treeId ?? get().activeTreeId,
+        })).filter((e) => e.nodeType !== '');
+      } catch (e) {
+        console.error('Failed to parse JSON log:', e);
+      }
+    } else {
+      // Text format
+      entries = trimmed.split('\n').map((line) => {
+        const parts = line.trim().split(/\s+/);
+        return {
+          timestamp: parseInt(parts[0] ?? '0', 10),
+          nodeUid: parseInt(parts[1] ?? '0', 10),
+          nodeType: parts[2] ?? 'Unknown',
+          nodeName: parts[3] ?? 'Unknown',
+          status: (parts[4] ?? 'IDLE') as NodeStatus,
+          treeId: parts[5] ?? get().activeTreeId,
+        };
+      }).filter((e) => e.nodeType !== '');
+    }
 
     set({
       debugState: {
@@ -355,5 +623,20 @@ function updateNodeConditionsRecursive(
   return {
     ...node,
     children: node.children.map((c) => updateNodeConditionsRecursive(c, nodeId, preconditions, postconditions)),
+  };
+}
+
+function updateNodePortRemapRecursive(
+  node: import('../types/bt').BTTreeNode,
+  nodeId: string,
+  portRemap?: Record<string, string>
+): import('../types/bt').BTTreeNode {
+  if (node.id === nodeId) {
+    return { ...node, portRemap };
+  }
+  if (node.children.length === 0) return node;
+  return {
+    ...node,
+    children: node.children.map((c) => updateNodePortRemapRecursive(c, nodeId, portRemap)),
   };
 }

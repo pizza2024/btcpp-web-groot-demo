@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBTStore } from '../store/btStore';
 import { CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeCategory, BTNodeDefinition } from '../types/bt';
@@ -7,9 +8,11 @@ import NodeModelModal from './NodeModelModal';
 const CATEGORIES: BTNodeCategory[] = ['Action', 'Condition', 'Control', 'Decorator', 'SubTree'].sort((a, b) => a.localeCompare(b)) as BTNodeCategory[];
 
 const NodePalette: React.FC = () => {
+  const { t } = useTranslation();
   const { project, addNodeModel, updateNodeModel, deleteNodeModel } = useBTStore();
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(CATEGORIES));
   const [searchQuery, setSearchQuery] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
 
   // Model modal state: null = closed, 'create' = create new, BTNodeDefinition = edit existing
   const [modelModal, setModelModal] = useState<{ mode: 'create'; defaultCategory: BTNodeCategory } | { mode: 'edit'; def: BTNodeDefinition } | null>(null);
@@ -54,15 +57,21 @@ const NodePalette: React.FC = () => {
     }
   };
 
-  return (
-    <div className="panel node-palette">
-      <div className="panel-header">Models Palette</div>
+  const toggleCollapse = () => setCollapsed((c) => !c);
 
+  return (
+    <div className={`panel node-palette${collapsed ? ' collapsed' : ''}`}>
+      <div className="panel-header" onClick={toggleCollapse}>
+        <span>Models Palette</span>
+        <span className="collapse-icon">{collapsed ? '▶' : '▼'}</span>
+      </div>
+      {!collapsed && (
+      <>
       {/* Search box */}
       <div style={{ padding: '8px 8px 4px 8px' }}>
         <input
           type="text"
-          placeholder="Search models..."
+          placeholder={t('palette.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{
@@ -158,6 +167,7 @@ const NodePalette: React.FC = () => {
         <NodeModelModal
           mode="create"
           defaultCategory={modelModal.defaultCategory}
+          existingModels={project.nodeModels}
           onSave={handleCreate}
           onClose={() => setModelModal(null)}
         />
@@ -170,6 +180,8 @@ const NodePalette: React.FC = () => {
           onDelete={handleDelete}
           onClose={() => setModelModal(null)}
         />
+      )}
+      </>
       )}
     </div>
   );

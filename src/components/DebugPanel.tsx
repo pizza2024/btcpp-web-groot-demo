@@ -77,7 +77,7 @@ const DebugPanel: React.FC = () => {
             Reset
           </button>
         )}
-        <input ref={fileInputRef} type="file" accept=".log,.txt" style={{ display: 'none' }} onChange={handleLoadFile} />
+        <input ref={fileInputRef} type="file" accept=".log,.txt,.json" style={{ display: 'none' }} onChange={handleLoadFile} />
       </div>
 
       {/* Paste log editor */}
@@ -104,7 +104,7 @@ const DebugPanel: React.FC = () => {
             Apply Log
           </button>
           <div style={{ fontSize: 10, color: '#556', marginTop: 4 }}>
-            Format: timestamp uid nodeType nodeName status [treeId]
+            Format: text (timestamp uid nodeType name status [treeId]) or JSON array
           </div>
         </div>
       )}

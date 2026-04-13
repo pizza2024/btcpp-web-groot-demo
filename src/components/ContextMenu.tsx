@@ -6,7 +6,11 @@ export interface MenuItem {
   icon?: string;
   disabled?: boolean;
   danger?: boolean;
-  action: () => void;
+  /** Separator below this item (not rendered as button) */
+  separator?: boolean;
+  action?: () => void;
+  /** For submenu items */
+  submenu?: MenuItem[];
 }
 
 export interface MenuConfig {
@@ -24,6 +28,7 @@ interface ContextMenuProps {
 
 const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetType, menuConfig, onClose }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [submenuId, setSubmenuId] = useState<string | null>(null);
 
   // Close on left click outside
   useEffect(() => {
@@ -56,6 +61,49 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetType, menuCon
     return null;
   }
 
+  const renderItem = (item: MenuItem) => {
+    if (item.separator) {
+      return <div key={item.id} className="context-menu-separator" />;
+    }
+
+    if (item.submenu) {
+      return (
+        <div
+          key={item.id}
+          className={`context-menu-item context-menu-has-submenu ${item.disabled ? 'disabled' : ''}`}
+          onMouseEnter={() => !item.disabled && setSubmenuId(item.id)}
+          onMouseLeave={() => !item.disabled && setSubmenuId(null)}
+        >
+          <span className="context-menu-icon">{item.icon}</span>
+          <span className="context-menu-label">{item.label}</span>
+          <span className="context-menu-arrow">▶</span>
+          {submenuId === item.id && (
+            <div className="context-menu-submenu">
+              {item.submenu.map(sub => renderItem(sub))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={item.id}
+        className={`context-menu-item ${item.danger ? 'danger' : ''} ${item.disabled ? 'disabled' : ''}`}
+        onClick={() => {
+          if (!item.disabled) {
+            item.action?.();
+            onClose();
+          }
+        }}
+        disabled={item.disabled}
+      >
+        {item.icon && <span className="context-menu-icon">{item.icon}</span>}
+        <span className="context-menu-label">{item.label}</span>
+      </button>
+    );
+  };
+
   return (
     <div
       ref={menuRef}
@@ -63,6 +111,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetType, menuCon
       onMouseDown={(e) => {
         e.stopPropagation();
       }}
+      onMouseLeave={() => setSubmenuId(null)}
       style={{
         position: 'fixed',
         left: position.x,
@@ -70,22 +119,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ position, targetType, menuCon
         zIndex: 1000,
       }}
     >
-      {menuItems.map((item) => (
-        <button
-          key={item.id}
-          className={`context-menu-item ${item.danger ? 'danger' : ''}`}
-          onClick={() => {
-            if (!item.disabled) {
-              item.action();
-              onClose();
-            }
-          }}
-          disabled={item.disabled}
-        >
-          {item.icon && <span className="context-menu-icon">{item.icon}</span>}
-          <span className="context-menu-label">{item.label}</span>
-        </button>
-      ))}
+      {menuItems.map(item => renderItem(item))}
     </div>
   );
 };

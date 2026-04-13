@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CATEGORY_COLORS, PORT_DIRECTIONS, PORT_TYPES } from '../types/bt-constants';
 import type { BTNodeCategory, BTNodeDefinition, BTPort, PortDirection } from '../types/bt';
+import { validateNodeModel } from '../utils/btXml';
 
 interface PortFormState {
   name: string;
@@ -22,6 +23,7 @@ interface NodeModelModalProps {
   /** Create new model */
   mode: 'create';
   defaultCategory?: BTNodeCategory;
+  existingModels?: BTNodeDefinition[];
   onSave: (def: BTNodeDefinition) => void;
   onClose: () => void;
 }
@@ -46,6 +48,7 @@ const NodeModelModal: React.FC<Props> = (props) => {
   const [category, setCategory] = useState<BTNodeCategory>('Action');
   const [description, setDescription] = useState('');
   const [ports, setPorts] = useState<PortFormState[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Initialize
   useEffect(() => {
@@ -82,10 +85,6 @@ const NodeModelModal: React.FC<Props> = (props) => {
 
   const handleSave = () => {
     const trimmed = nodeType.trim();
-    if (!trimmed) {
-      alert('Please enter a node type name');
-      return;
-    }
 
     const validPorts: BTPort[] = ports
       .filter(p => p.name.trim())
@@ -97,20 +96,24 @@ const NodeModelModal: React.FC<Props> = (props) => {
         defaultValue: p.defaultValue.trim() || undefined,
       }));
 
+    const def: BTNodeDefinition = isCreate
+      ? { type: trimmed, category, description: description.trim() || undefined, ports: validPorts.length > 0 ? validPorts : undefined }
+      : { ...(props as NodeModelEditProps).nodeDef, category, description: description.trim() || undefined, ports: validPorts.length > 0 ? validPorts : undefined };
+
+    // Run node model validation
+    const existingModels = isCreate ? (props as NodeModelModalProps).existingModels ?? [] : [];
+    const issues = validateNodeModel(def, existingModels);
+    const errors = issues.filter(i => i.severity === 'error');
+    if (errors.length > 0) {
+      setValidationErrors(errors.map(e => e.message));
+      return;
+    }
+
+    setValidationErrors([]);
     if (isCreate) {
-      props.onSave({
-        type: trimmed,
-        category,
-        description: description.trim() || undefined,
-        ports: validPorts.length > 0 ? validPorts : undefined,
-      });
+      props.onSave(def);
     } else {
-      props.onSave({
-        ...(props as NodeModelEditProps).nodeDef,
-        category,
-        description: description.trim() || undefined,
-        ports: validPorts.length > 0 ? validPorts : undefined,
-      });
+      props.onSave(def);
     }
     props.onClose();
   };
@@ -298,6 +301,13 @@ const NodeModelModal: React.FC<Props> = (props) => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+          {validationErrors.length > 0 && (
+            <div className="validation-errors">
+              {validationErrors.map((err, i) => (
+                <div key={i} className="validation-error-item">⚠ {err}</div>
+              ))}
             </div>
           )}
         </div>

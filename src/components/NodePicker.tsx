@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBTStore } from '../store/btStore';
 import { CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeCategory } from '../types/bt';
@@ -12,6 +13,7 @@ interface NodePickerProps {
 const CATEGORIES: BTNodeCategory[] = ['Action', 'Condition', 'Control', 'Decorator', 'SubTree'].sort((a, b) => a.localeCompare(b)) as BTNodeCategory[];
 
 const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) => {
+  const { t } = useTranslation();
   const { project } = useBTStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState(position);
@@ -115,7 +117,7 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search nodes..."
+          placeholder={t('palette.searchNodesPlaceholder')}
           className="node-picker-input"
         />
       </div>
@@ -123,7 +125,7 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
       {/* Node list */}
       <div className="node-picker-list">
         {Object.keys(grouped).length === 0 ? (
-          <div className="node-picker-empty">No nodes found</div>
+          <div className="node-picker-empty">{t('palette.noNodesFound')}</div>
         ) : (
           Object.entries(grouped).map(([cat, models]) => (
             <div key={cat} className="node-picker-category">

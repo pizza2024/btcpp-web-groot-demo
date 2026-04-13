@@ -63,7 +63,7 @@ export function treeToFlow(
         id: `e_${_edgeCounter++}`,
         source: parentId,
         target: btNode.id,
-        type: 'smoothstep',
+        type: 'btEdge',
         style: { stroke: '#6888aa', strokeWidth: 2 },
       });
     }
@@ -90,9 +90,15 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
 
   // Find root node (no incoming edges)
   const hasParent = new Set(edges.map((e) => e.target));
-  const rootNodes = nodes.filter((n) => !hasParent.has(n.id));
+  let rootNodes = nodes.filter((n) => !hasParent.has(n.id));
   if (rootNodes.length === 0) throw new Error('No root node found');
-  if (rootNodes.length > 1) throw new Error('Multiple root nodes found');
+  // When an edge is deleted, the target can become a second "root" (no incoming edges).
+  // Prefer the ROOT-type node as the actual tree root; otherwise use first found.
+  if (rootNodes.length > 1) {
+    const rootTypeNode = rootNodes.find((n) => (n.data as { nodeType?: string }).nodeType === EDITOR_ROOT_TYPE);
+    if (rootTypeNode) rootNodes = [rootTypeNode];
+    else rootNodes = [rootNodes[0]];
+  }
   const rootNode = rootNodes[0];
 
   function buildNode(nodeId: string): BTTreeNode {
@@ -118,20 +124,30 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
     };
   }
 
-  // Ensure all nodes are connected to the tree root, otherwise serializing would drop them.
-  const visited = new Set<string>();
-  function visit(nodeId: string) {
-    if (visited.has(nodeId)) return;
-    visited.add(nodeId);
-    const childIds = children.get(nodeId) ?? [];
-    childIds.forEach(visit);
-  }
-  visit(rootNode.id);
-  if (visited.size !== nodes.length) {
-    throw new Error('Disconnected nodes found');
-  }
-
   return { id: treeId, root: buildNode(rootNode.id) };
+}
+
+/**
+ * Get all descendant node IDs of a given node (all nodes reachable via outgoing edges).
+ * This is used for Ctrl+drag to move an entire subtree.
+ */
+export function getDescendantIds(nodeId: string, edges: Edge[]): string[] {
+  const children: Map<string, string[]> = new Map();
+  edges.forEach((e) => {
+    const arr = children.get(e.source) ?? [];
+    arr.push(e.target);
+    children.set(e.source, arr);
+  });
+
+  const result: string[] = [];
+  const queue: string[] = [...(children.get(nodeId) ?? [])];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    result.push(current);
+    const grandchildren = children.get(current) ?? [];
+    queue.push(...grandchildren);
+  }
+  return result;
 }
 
 export function isSameTreeStructure(left: BTTree, right: BTTree): boolean {
