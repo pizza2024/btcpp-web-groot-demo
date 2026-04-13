@@ -157,6 +157,9 @@ const BTCanvas: React.FC = () => {
 
   const [nodePickerPosition, setNodePickerPosition] = React.useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null);
 
+  // Track nodes that became orphan (disconnected from tree) - they stay on canvas but excluded from tree
+  const [detachedNodeIds, setDetachedNodeIds] = React.useState<Set<string>>(new Set());
+
   // Track if we should force layout (tree switch or initial load)
   const forceLayoutRef = useRef(true);
   // Track the last tree we synced from, to detect real project changes
@@ -172,9 +175,33 @@ const BTCanvas: React.FC = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
 
   const deleteEdge = useCallback((edgeId: string) => {
-    setEdges((prev) => prev.filter((edge) => edge.id !== edgeId));
+    setEdges((prev) => {
+      const edge = prev.find((e) => e.id !== edgeId);
+      if (!edge) return prev;
+
+      const targetId = edge.target;
+      const remainingEdges = prev.filter((e) => e.id !== edgeId);
+
+      // Check if target has any other incoming edges
+      const hasOtherIncoming = remainingEdges.some((e) => e.target === targetId);
+
+      if (!hasOtherIncoming) {
+        // Target is now orphan - check if it's a leaf node
+        // If so, remove it along with the edge to avoid saveToStore excluding it
+        setNodes((nodes) => {
+          const targetNode = nodes.find((n) => n.id === targetId);
+          const category = targetNode?.data?.category;
+          if (category === 'Action' || category === 'Condition') {
+            return nodes.filter((n) => n.id !== targetId);
+          }
+          return nodes;
+        });
+      }
+
+      return remainingEdges;
+    });
     setSelectedEdgeId((prev) => (prev === edgeId ? null : prev));
-  }, [setEdges]);
+  }, [setEdges, setNodes]);
 
   // ── Ctrl+Drag Subtree ──────────────────────────────────────────────────────
   // Track Ctrl key state separately via keydown/keyup so we can detect it reliably
@@ -368,11 +395,15 @@ const BTCanvas: React.FC = () => {
             status: debugState.nodeStatuses.get(n.id) ?? 'IDLE',
           },
         }));
-        return merged;
+
+        // Add back detached (orphan) nodes - they should stay on canvas even after project sync
+        const attachedIds = new Set(laidOutNodes.map((n) => n.id));
+        const detachedToRestore = nodes.filter((n) => detachedNodeIds.has(n.id) && !attachedIds.has(n.id));
+        return [...merged, ...detachedToRestore];
       });
       setEdges(withSelectedEdge(newEdges, selectedEdgeId, deleteEdge));
     }
-  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds]);
+  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds, detachedNodeIds, nodes]);
 
   // Highlight selected nodes
   React.useEffect(() => {
@@ -725,7 +756,10 @@ const BTCanvas: React.FC = () => {
         // Always read fresh localNodes/localEdges from store at execution time,
         // so edits via PropertiesPanel (which update localNodes directly) are saved correctly.
         const { localNodes: freshNodes, localEdges: freshEdges, project: p, activeTreeId: treeId } = useBTStore.getState();
-        const tree = flowToTree(treeId, freshNodes, freshEdges);
+
+        // Filter out detached (orphan) nodes when saving to keep tree structure clean
+        const attachedNodes = freshNodes.filter((n) => !detachedNodeIds.has(n.id));
+        const tree = flowToTree(treeId, attachedNodes, freshEdges);
         const currentTree = p.trees.find((t) => t.id === treeId);
 
         // Only skip save if node structure unchanged AND edges unchanged.
@@ -1196,11 +1230,46 @@ const BTCanvas: React.FC = () => {
           icon: '🗑️',
           danger: true,
           action: () => {
+            if (!menuState.targetId) return;
             useBTStore.getState().pushHistory();
-            setNodes((prev) => prev.filter((n) => n.id !== menuState.targetId));
-            setEdges((prev) => prev.filter((e) => e.source !== menuState.targetId && e.target !== menuState.targetId));
+            const deletedId = menuState.targetId;
+            setNodes((prev) => prev.filter((n) => n.id !== deletedId));
+            setEdges((prev) => prev.filter((e) => e.source !== deletedId && e.target !== deletedId));
+            // Remove from detached set if it was tracked as orphan
+            setDetachedNodeIds((prev) => {
+              const next = new Set(prev);
+              next.delete(deletedId);
+              return next;
+            });
           },
         },
+        ...(hasChildren ? [{
+          id: 'delete-subtree',
+          label: '🗑️ Delete Subtree',
+          icon: '🗑️',
+          danger: true,
+          action: () => {
+            if (!menuState.targetId) return;
+            useBTStore.getState().pushHistory();
+
+            // Get all descendant node IDs (subtree)
+            const subtreeNodeIds = new Set<string>();
+            subtreeNodeIds.add(menuState.targetId);
+            const descendants = getDescendantIds(menuState.targetId, edges);
+            descendants.forEach((id) => subtreeNodeIds.add(id));
+
+            // Delete all nodes in subtree
+            setNodes((prev) => prev.filter((n) => !subtreeNodeIds.has(n.id)));
+            // Delete all edges connected to subtree nodes
+            setEdges((prev) => prev.filter((e) => !subtreeNodeIds.has(e.source) && !subtreeNodeIds.has(e.target)));
+            // Remove deleted nodes from detached set
+            setDetachedNodeIds((prev) => {
+              const next = new Set(prev);
+              subtreeNodeIds.forEach((id) => next.delete(id));
+              return next;
+            });
+          },
+        }] : []),
         ...(hasChildren ? [{
           id: 'collapse',
           label: isCollapsed ? '▶ Expand Subtree' : '▼ Collapse Subtree',

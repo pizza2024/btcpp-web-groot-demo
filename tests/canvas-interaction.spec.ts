@@ -120,7 +120,7 @@ test.describe('Canvas Interaction - Edge Cases', () => {
     await nodes.nth(1).click({ button: 'right' });
     await page.waitForTimeout(300);
     
-    const copyBtn = page.getByRole('menuitem', { name: /copy/i });
+    const copyBtn = page.getByRole('button', { name: /copy/i });
     if (await copyBtn.isVisible()) {
       await copyBtn.click();
       await page.waitForTimeout(200);
@@ -129,7 +129,7 @@ test.describe('Canvas Interaction - Edge Cases', () => {
       await page.locator('.react-flow__pane').click({ button: 'right' });
       await page.waitForTimeout(300);
       
-      const pasteBtn = page.getByRole('menuitem', { name: /paste/i });
+      const pasteBtn = page.getByRole('button', { name: /paste/i });
       if (await pasteBtn.isVisible()) {
         await pasteBtn.click();
         await page.waitForTimeout(400);

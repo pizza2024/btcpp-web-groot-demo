@@ -126,7 +126,7 @@ test.describe('Behavior Tree - Practical Scenarios', () => {
     await page.locator('.react-flow__pane').click({ button: 'right' });
     await page.waitForTimeout(200);
     
-    const selectAllBtn = page.getByRole('menuitem', { name: /select all/i });
+    const selectAllBtn = page.getByRole('button', { name: /select all/i });
     if (await selectAllBtn.isVisible()) {
       await selectAllBtn.click();
       await page.waitForTimeout(200);
@@ -169,7 +169,7 @@ test.describe('Behavior Tree - Practical Scenarios', () => {
     await page.locator('.react-flow__pane').click({ button: 'right' });
     await page.waitForTimeout(200);
     
-    const fitViewBtn = page.getByRole('menuitem', { name: /fit view/i });
+    const fitViewBtn = page.getByRole('button', { name: /fit view/i });
     if (await fitViewBtn.isVisible()) {
       await fitViewBtn.click();
       await page.waitForTimeout(300);
