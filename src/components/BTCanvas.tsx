@@ -140,6 +140,8 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
     pushHistory,
     collapsedNodeIds,
     toggleNodeCollapse,
+    localNodes,
+    localEdges,
   } = useBTStore();
 
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
@@ -359,7 +361,10 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
     }
 
     // Force layout when switching trees or first load OR when project changed (e.g., loaded new XML)
-    const shouldForceLayout = forceLayoutRef.current || lastSyncedTreeRef.current !== activeTreeId;
+    const shouldForceLayout =
+      forceLayoutRef.current
+      || lastSyncedTreeRef.current !== activeTreeId
+      || (localNodes.length === 0 && localEdges.length === 0);
     if (shouldForceLayout) {
       // Full rebuild with autoLayout for tree switch or initial load
       const { nodes: n, edges: e } = buildFlowNodes(activeTreeId, project, debugState.nodeStatuses);
@@ -433,7 +438,7 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
       }));
       setEdges(withSelectedEdge(edgesWithStatus, selectedEdgeId, deleteEdge));
     }
-  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds]);
+  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds, localNodes.length, localEdges.length]);
 
   // Highlight selected nodes
   React.useEffect(() => {

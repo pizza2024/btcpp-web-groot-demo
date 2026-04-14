@@ -28,7 +28,6 @@ const XmlPreviewPanel: React.FC = () => {
   const project = useBTStore((state) => state.project);
   const activeTreeId = useBTStore((state) => state.activeTreeId);
   const loadXML = useBTStore((state) => state.loadXML);
-  const setProject = useBTStore((state) => state.setProject);
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -100,7 +99,6 @@ const XmlPreviewPanel: React.FC = () => {
         window.alert(t('xmlPreview.invalidXml'));
         return;
       }
-      setProject(newProject);
       setIsEditing(false);
       setEditedXml('');
     } catch (error) {

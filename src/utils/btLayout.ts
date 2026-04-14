@@ -4,6 +4,11 @@ import type { Node, Edge } from '@xyflow/react';
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 56;
 
+function getChildIndex(node: Node): number | undefined {
+  const data = node.data as { childIndex?: unknown } | undefined;
+  return typeof data?.childIndex === 'number' ? data.childIndex : undefined;
+}
+
 export function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
@@ -18,7 +23,7 @@ export function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
 
   dagre.layout(g);
 
-  return nodes.map((n) => {
+  const laidOutNodes = nodes.map((n) => {
     const pos = g.node(n.id);
     return {
       ...n,
@@ -28,4 +33,42 @@ export function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
       },
     };
   });
+
+  const nodeById = new Map(laidOutNodes.map((node) => [node.id, node]));
+  const childIdsByParent = new Map<string, string[]>();
+  edges.forEach((edge) => {
+    const childIds = childIdsByParent.get(edge.source) ?? [];
+    childIds.push(edge.target);
+    childIdsByParent.set(edge.source, childIds);
+  });
+
+  childIdsByParent.forEach((childIds) => {
+    if (childIds.length < 2) return;
+
+    const childNodes = childIds
+      .map((id) => nodeById.get(id))
+      .filter((node): node is Node => Boolean(node));
+
+    if (childNodes.length < 2) return;
+
+    const desiredOrder = [...childNodes].sort((left, right) => {
+      const leftIndex = getChildIndex(left) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = getChildIndex(right) ?? Number.MAX_SAFE_INTEGER;
+      if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+      return left.id.localeCompare(right.id);
+    });
+
+    const xSlots = [...childNodes]
+      .map((node) => node.position.x)
+      .sort((left, right) => left - right);
+
+    desiredOrder.forEach((node, index) => {
+      node.position = {
+        ...node.position,
+        x: xSlots[index],
+      };
+    });
+  });
+
+  return laidOutNodes;
 }
