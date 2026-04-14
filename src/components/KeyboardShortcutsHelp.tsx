@@ -38,6 +38,7 @@ const SHORTCUTS = [
       { keys: ['F'], description: 'Fit view' },
       { keys: ['↑', '↓', '←', '→'], description: 'Nudge selected node(s)' },
       { keys: ['Ctrl', 'Drag'], description: 'Drag entire subtree' },
+      { keys: ['Alt', 'Drag'], description: 'Drag entire subtree (quick mode)' },
     ],
   },
 ];

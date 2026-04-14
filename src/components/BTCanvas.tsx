@@ -249,8 +249,9 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
   }, []);
 
   const onNodeDragStart = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
-      if (!ctrlKeyRef.current) return;
+    (event: React.MouseEvent, node: Node) => {
+      const useSubtreeDrag = ctrlKeyRef.current || event.altKey;
+      if (!useSubtreeDrag) return;
       const descendantIds = getDescendantIds(node.id, edges);
       if (descendantIds.length === 0) return; // No subtree to drag
 
