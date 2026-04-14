@@ -96,6 +96,21 @@ function buildFlowNodes(
   return { nodes, edges };
 }
 
+function bringNodeToFront(nodes: Node[], nodeId: string): Node[] {
+  const targetNode = nodes.find((node) => node.id === nodeId);
+  if (!targetNode) return nodes;
+
+  const highestOtherZIndex = nodes.reduce((highest, node) => {
+    if (node.id === nodeId) return highest;
+    return Math.max(highest, typeof node.zIndex === 'number' ? node.zIndex : 0);
+  }, 0);
+  const nextZIndex = highestOtherZIndex + 1;
+
+  if (targetNode.zIndex === nextZIndex) return nodes;
+
+  return nodes.map((node) => (node.id === nodeId ? { ...node, zIndex: nextZIndex } : node));
+}
+
 const BTCanvas: React.FC = () => {
   const {
     project,
@@ -169,6 +184,8 @@ const BTCanvas: React.FC = () => {
   // ── Ctrl+Drag Subtree ──────────────────────────────────────────────────────
   // Track Ctrl key state separately via keydown/keyup so we can detect it reliably
   const ctrlKeyRef = useRef(false);
+  const [isBoxSelectionEnabled, setIsBoxSelectionEnabled] = React.useState(false);
+  const lastSingleSelectedNodeIdRef = useRef<string | null>(null);
 
   // Track ctrl+drag state: isCtrlDragging, draggedNodeId, and original positions
   const ctrlDragRef = useRef<{
@@ -183,18 +200,26 @@ const BTCanvas: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Control' || e.key === 'Meta') {
         ctrlKeyRef.current = true;
+        setIsBoxSelectionEnabled(true);
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Control' || e.key === 'Meta') {
         ctrlKeyRef.current = false;
+        setIsBoxSelectionEnabled(false);
       }
+    };
+    const handleWindowBlur = () => {
+      ctrlKeyRef.current = false;
+      setIsBoxSelectionEnabled(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleWindowBlur);
     };
   }, []);
 
@@ -316,12 +341,15 @@ const BTCanvas: React.FC = () => {
           desc.forEach(d => collapsedDescendants.add(d));
         }
       });
-      const visibleNodes = n.map((node) => ({
-        ...node,
-        hidden: collapsedDescendants.has(node.id),
-        data: { ...node.data, isCollapsed: collapsed.has(node.id) },
-      }));
-      setNodes(visibleNodes);
+      setNodes((prevNodes) => {
+        const existingZIndexes = new Map(prevNodes.map((node) => [node.id, node.zIndex]));
+        return n.map((node) => ({
+          ...node,
+          hidden: collapsedDescendants.has(node.id),
+          zIndex: existingZIndexes.get(node.id) ?? node.zIndex,
+          data: { ...node.data, isCollapsed: collapsed.has(node.id) },
+        }));
+      });
       setEdges(withSelectedEdge(e, selectedEdgeId, deleteEdge));
       lastSyncedTreeRef.current = activeTreeId;
       forceLayoutRef.current = false;
@@ -347,10 +375,12 @@ const BTCanvas: React.FC = () => {
       // Merge: keep existing positions from local nodes state, but use layout positions for new nodes
       setNodes((prevNodes) => {
         const existingPositions = new Map(prevNodes.map((n) => [n.id, n.position]));
+        const existingZIndexes = new Map(prevNodes.map((n) => [n.id, n.zIndex]));
         const merged = laidOutNodes.map((n) => ({
           ...n,
           hidden: collapsedDescendants.has(n.id),
           position: existingPositions.get(n.id) ?? n.position,
+          zIndex: existingZIndexes.get(n.id) ?? n.zIndex,
           selected: selectedNodeIds.has(n.id),
           data: {
             ...n.data,
@@ -375,12 +405,27 @@ const BTCanvas: React.FC = () => {
 
   // Highlight selected nodes
   React.useEffect(() => {
-    setNodes((prev) =>
-      prev.map((n) => ({
+    const singleSelectedNodeId = selectedNodeIds.size === 1 ? Array.from(selectedNodeIds)[0] : null;
+
+    setNodes((prev) => {
+      const withSelectionState = prev.map((n) => ({
         ...n,
         selected: selectedNodeIds.has(n.id),
-      }))
-    );
+      }));
+
+      if (singleSelectedNodeId) {
+        return bringNodeToFront(withSelectionState, singleSelectedNodeId);
+      }
+
+      const lastSingleSelectedNodeId = lastSingleSelectedNodeIdRef.current;
+      if (lastSingleSelectedNodeId) {
+        return bringNodeToFront(withSelectionState, lastSingleSelectedNodeId);
+      }
+
+      return withSelectionState;
+    });
+
+    lastSingleSelectedNodeIdRef.current = singleSelectedNodeId;
   }, [selectedNodeIds, setNodes]);
 
   // Track source node when connection starts
@@ -694,8 +739,12 @@ const BTCanvas: React.FC = () => {
 
   const onSelectionChange = useCallback(
     (params: { nodes: Node[] }) => {
-      // Update selectedNodeIds in store based on drag selection
-      const selectedIds = new Set(params.nodes.map((n) => n.id));
+      // Exclude ROOT nodes from drag-box selection.
+      const selectedIds = new Set(
+        params.nodes
+          .filter((n) => ((n.data as { isRoot?: boolean } | undefined)?.isRoot !== true))
+          .map((n) => n.id)
+      );
       // Replace the entire selection with the dragged selection
       useBTStore.getState().setSelectedNodes(selectedIds);
     },
@@ -1210,19 +1259,22 @@ const BTCanvas: React.FC = () => {
       node: menuState.targetType === 'node' && menuState.targetId && !isRoot ? [
         {
           id: 'copy',
-          label: '📋 Copy Node',
+          label: 'Copy Node',
           icon: '📋',
           action: () => {
-            // Look up node directly from store at action time to avoid stale closure
-            const nodeToCopy = menuState.targetId
-              ? (useBTStore.getState().localNodes.find((n) => n.id === menuState.targetId) ?? null)
-              : null;
-            if (nodeToCopy) copyNode(nodeToCopy);
+            // Prefer the current target node from this render; fallback to store lookup.
+            const nodeToCopy = targetNode
+              ?? (targetNodeId
+                ? (useBTStore.getState().localNodes.find((n) => n.id === targetNodeId) ?? null)
+                : null);
+            if (nodeToCopy) {
+              copyNode(nodeToCopy);
+            }
           },
         },
         {
           id: 'delete',
-          label: '🗑️ Delete Node',
+          label: 'Delete Node',
           icon: '🗑️',
           danger: true,
           action: () => {
@@ -1241,7 +1293,7 @@ const BTCanvas: React.FC = () => {
         },
         ...(hasChildren ? [{
           id: 'delete-subtree',
-          label: '🗑️ Delete Subtree',
+          label: 'Delete Subtree',
           icon: '🗑️',
           danger: true,
           action: () => {
@@ -1268,7 +1320,7 @@ const BTCanvas: React.FC = () => {
         }] : []),
         ...(hasChildren ? [{
           id: 'collapse',
-          label: isCollapsed ? '▶ Expand Subtree' : '▼ Collapse Subtree',
+          label: isCollapsed ? 'Expand Subtree' : 'Collapse Subtree',
           icon: isCollapsed ? '▶' : '▼',
           action: () => {
             if (menuState.targetId) {
@@ -1276,26 +1328,10 @@ const BTCanvas: React.FC = () => {
             }
           },
         }] : []),
-        {
-          id: 'info',
-          label: 'ℹ️ Node Info',
-          icon: 'ℹ️',
-          action: () => {
-            if (!targetData) return;
-            const info = [
-              `Type: ${targetData.type}`,
-              `Category: ${targetData.category}`,
-              targetData.name ? `Name: ${targetData.name}` : null,
-              targetData.description ? `Description: ${targetData.description}` : null,
-              `Children: ${targetData.childrenCount ?? 0}`,
-            ].filter(Boolean).join('\n');
-            alert(`Node Info\n${'─'.repeat(20)}\n${info}`);
-          },
-        },
         { id: 'sep-save', label: '', separator: true } as MenuItem,
         {
           id: 'save-template',
-          label: '⭐ Save as Template',
+          label: 'Save as Template',
           icon: '⭐',
           action: () => {
             if (targetData?.type) {
@@ -1312,7 +1348,7 @@ const BTCanvas: React.FC = () => {
       pane: menuState.targetType === 'pane' ? [
         ...(useBTStore.getState().clipboard ? [{
           id: 'paste',
-          label: '📋 Paste Node',
+          label: 'Paste Node',
           icon: '📋',
           action: () => {
             const newNode = pasteNode();
@@ -1325,7 +1361,7 @@ const BTCanvas: React.FC = () => {
         }] : []),
         {
           id: 'add',
-          label: '➕ Add Node',
+          label: 'Add Node',
           icon: '➕',
           action: () => {
             // Open node picker at center of viewport
@@ -1339,17 +1375,21 @@ const BTCanvas: React.FC = () => {
         { id: 'sep-select', label: '', separator: true } as MenuItem,
         {
           id: 'selectall',
-          label: '☑️ Select All',
+          label: 'Select All',
           icon: '☑️',
           action: () => {
-            const allIds = new Set(nodes.map((n) => n.id));
+            const allIds = new Set(
+              nodes
+                .filter((n) => ((n.data as { isRoot?: boolean } | undefined)?.isRoot !== true))
+                .map((n) => n.id)
+            );
             clearSelection();
             allIds.forEach((id) => useBTStore.getState().addToSelection(id));
           },
         },
         {
           id: 'fitview',
-          label: '🔍 Fit View',
+          label: 'Fit View',
           icon: '🔍',
           action: () => rfInstanceRef.current?.fitView(),
         },
@@ -1380,7 +1420,7 @@ const BTCanvas: React.FC = () => {
         onPaneContextMenu={onPaneContextMenu}
         onSelectionStart={onSelectionStart}
         onSelectionChange={onSelectionChange}
-        selectionOnDrag
+        selectionOnDrag={isBoxSelectionEnabled}
         selectionMode={SelectionMode.Partial}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
