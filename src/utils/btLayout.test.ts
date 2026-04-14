@@ -60,4 +60,72 @@ describe('autoLayout', () => {
     expect(ordered[0].position.x).toBeLessThan(ordered[1].position.x);
     expect(ordered[1].position.x).toBeLessThan(ordered[2].position.x);
   });
+
+  it('keeps single-child chains vertically aligned with parent', () => {
+    const nodes: Node[] = [
+      { id: 'root', type: 'btNode', position: { x: 0, y: 0 }, data: {} },
+      { id: 'left-decorator', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 0 } },
+      { id: 'right-decorator', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 1 } },
+      { id: 'left-sequence', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 0 } },
+      { id: 'right-sequence', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 0 } },
+    ];
+
+    const edges: Edge[] = [
+      { id: 'e1', source: 'root', target: 'left-decorator' },
+      { id: 'e2', source: 'root', target: 'right-decorator' },
+      { id: 'e3', source: 'left-decorator', target: 'left-sequence' },
+      { id: 'e4', source: 'right-decorator', target: 'right-sequence' },
+    ];
+
+    const laidOut = autoLayout(nodes, edges);
+    const leftDecorator = laidOut.find((n) => n.id === 'left-decorator');
+    const rightDecorator = laidOut.find((n) => n.id === 'right-decorator');
+    const leftSequence = laidOut.find((n) => n.id === 'left-sequence');
+    const rightSequence = laidOut.find((n) => n.id === 'right-sequence');
+
+    expect(leftDecorator).toBeDefined();
+    expect(rightDecorator).toBeDefined();
+    expect(leftSequence).toBeDefined();
+    expect(rightSequence).toBeDefined();
+
+    expect(leftSequence?.position.x).toBe(leftDecorator?.position.x);
+    expect(rightSequence?.position.x).toBe(rightDecorator?.position.x);
+  });
+
+  it('keeps sibling subtrees separated without horizontal interleaving', () => {
+    const nodes: Node[] = [
+      { id: 'root', type: 'btNode', position: { x: 0, y: 0 }, data: {} },
+      { id: 'left-seq', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 0 } },
+      { id: 'right-seq', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 1 } },
+      { id: 'l1', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 0 } },
+      { id: 'l2', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 1 } },
+      { id: 'r1', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 0 } },
+      { id: 'r2', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 1 } },
+    ];
+
+    const edges: Edge[] = [
+      { id: 'e1', source: 'root', target: 'left-seq' },
+      { id: 'e2', source: 'root', target: 'right-seq' },
+      { id: 'e3', source: 'left-seq', target: 'l1' },
+      { id: 'e4', source: 'left-seq', target: 'l2' },
+      { id: 'e5', source: 'right-seq', target: 'r1' },
+      { id: 'e6', source: 'right-seq', target: 'r2' },
+    ];
+
+    const laidOut = autoLayout(nodes, edges);
+    const leftSubtreeNodes = ['left-seq', 'l1', 'l2']
+      .map((id) => laidOut.find((n) => n.id === id))
+      .filter((n): n is Node => Boolean(n));
+    const rightSubtreeNodes = ['right-seq', 'r1', 'r2']
+      .map((id) => laidOut.find((n) => n.id === id))
+      .filter((n): n is Node => Boolean(n));
+
+    expect(leftSubtreeNodes).toHaveLength(3);
+    expect(rightSubtreeNodes).toHaveLength(3);
+
+    const leftMaxX = Math.max(...leftSubtreeNodes.map((n) => n.position.x));
+    const rightMinX = Math.min(...rightSubtreeNodes.map((n) => n.position.x));
+
+    expect(leftMaxX).toBeLessThan(rightMinX);
+  });
 });

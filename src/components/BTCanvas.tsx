@@ -743,6 +743,14 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
     setZoomLevel((prev) => (Math.abs(prev - nextZoom) < 0.0001 ? prev : nextZoom));
   }, []);
 
+  const beautifyLayout = useCallback(() => {
+    storeApi.getState().pushHistory();
+    setNodes((prev) => autoLayout(prev, edges));
+    requestAnimationFrame(() => {
+      rfInstanceRef.current?.fitView({ duration: 250, padding: 0.15 });
+    });
+  }, [edges, setNodes, storeApi]);
+
   const onMove = useCallback((_: MouseEvent | TouchEvent | null, viewport: { zoom: number }) => {
     syncZoomLevel(viewport.zoom);
   }, [syncZoomLevel]);
@@ -1455,9 +1463,15 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
           icon: '🔍',
           action: () => rfInstanceRef.current?.fitView(),
         },
+        {
+          id: 'beautify-layout',
+          label: 'Beautify Layout',
+          icon: '✨',
+          action: () => beautifyLayout(),
+        },
       ] : [],
     };
-  }, [menuState, nodes, deleteEdge, copyNode, pasteClipboardNode, clearSelection, toggleNodeCollapse]);
+  }, [menuState, nodes, deleteEdge, copyNode, pasteClipboardNode, clearSelection, toggleNodeCollapse, beautifyLayout]);
 
   return (
     <div ref={canvasContainerRef} onMouseMove={handleCanvasMouseMove} style={{ width: '100%', height: '100%' }}>
@@ -1518,6 +1532,13 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
                 background: sidePanelsCollapsed ? 'rgba(127, 150, 192, 0.28)' : 'transparent',
               }}
             />
+          </ControlButton>
+          <ControlButton
+            onClick={beautifyLayout}
+            title="Beautify Layout"
+            aria-label="Beautify Layout"
+          >
+            ✨
           </ControlButton>
         </Controls>
         <div
