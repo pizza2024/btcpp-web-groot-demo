@@ -49,6 +49,7 @@ describe('treeToFlow', () => {
       target: 'leaf-1',
       type: 'btEdge',
     });
+    expect(edges[0].sourceHandle).toBeUndefined();
   });
 });
 

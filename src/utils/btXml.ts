@@ -15,9 +15,9 @@ export interface MissingNodeModelCandidate {
   ports: BTPort[];
 }
 
-function parseTreeNode(el: Element, depth = 0): BTTreeNode {
+function parseTreeNode(el: Element, createNodeId: () => string, depth = 0): BTTreeNode {
   const xmlTag = el.tagName;
-  const id = `n_${Math.random().toString(36).slice(2, 9)}`;
+  const id = createNodeId();
   const idAttr = el.getAttribute('ID');
 
   // For Action/Condition elements, the actual node type is the ID attribute
@@ -59,7 +59,7 @@ function parseTreeNode(el: Element, depth = 0): BTTreeNode {
 
   const children: BTTreeNode[] = [];
   Array.from(el.children).forEach((child) => {
-    children.push(parseTreeNode(child as Element, depth + 1));
+    children.push(parseTreeNode(child as Element, createNodeId, depth + 1));
   });
 
   return {
@@ -71,6 +71,14 @@ function parseTreeNode(el: Element, depth = 0): BTTreeNode {
     ...(Object.keys(preconditions).length > 0 && { preconditions }),
     ...(Object.keys(postconditions).length > 0 && { postconditions }),
     ...(portRemap && Object.keys(portRemap).length > 0 && { portRemap }),
+  };
+}
+
+function createNodeIdFactory(): () => string {
+  let counter = 0;
+  return () => {
+    counter += 1;
+    return `n_${counter.toString(36)}`;
   };
 }
 
@@ -169,13 +177,14 @@ export function parseXML(xmlText: string): BTProject {
 
   // Parse trees
   const trees: BTTree[] = [];
+  const createNodeId = createNodeIdFactory();
   root.querySelectorAll(':scope > BehaviorTree').forEach((btEl) => {
     const treeId = btEl.getAttribute('ID') || `Tree_${trees.length + 1}`;
     const rootEl = btEl.firstElementChild;
     if (!rootEl) return;
-    const parsedRoot = parseTreeNode(rootEl);
+    const parsedRoot = parseTreeNode(rootEl, createNodeId);
     const editorRoot: BTTreeNode = {
-      id: `n_root_${Math.random().toString(36).slice(2, 9)}`,
+      id: createNodeId(),
       type: EDITOR_ROOT_TYPE,
       ports: {},
       children: [parsedRoot],

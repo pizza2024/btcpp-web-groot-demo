@@ -33,7 +33,7 @@ export function treeToFlow(
     return btNode.children.length;
   }
 
-  function walk(btNode: BTTreeNode, parentId?: string, childIndex?: number) {
+  function walk(btNode: BTTreeNode, childIndex?: number) {
     const builtinDef = BUILTIN_NODES.find((n) => n.type === btNode.type);
     const customDef = nodeModels.find((n) => n.type === btNode.type);
     const category = builtinDef?.category ?? customDef?.category ?? 'Action';
@@ -58,18 +58,15 @@ export function treeToFlow(
       } as BTFlowNodeData,
     });
 
-    if (parentId !== undefined) {
+    btNode.children.forEach((child, idx) => {
+      walk(child, idx);
       edges.push({
         id: `e_${_edgeCounter++}`,
-        source: parentId,
-        target: btNode.id,
+        source: btNode.id,
+        target: child.id,
         type: 'btEdge',
         style: { stroke: '#6888aa', strokeWidth: 2 },
       });
-    }
-
-    btNode.children.forEach((child, idx) => {
-      walk(child, btNode.id, idx);
     });
   }
 

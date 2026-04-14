@@ -417,6 +417,24 @@
   color: var(--text-link);
 }
 
+.xml-preview-save-btn {
+  color: #42b881;
+}
+
+.xml-preview-save-btn:hover {
+  background: rgba(66, 184, 129, 0.2);
+  color: #42f881;
+}
+
+.xml-preview-cancel-btn {
+  color: #f66;
+}
+
+.xml-preview-cancel-btn:hover {
+  background: rgba(255, 102, 102, 0.2);
+  color: #ff8888;
+}
+
 .xml-preview-body {
   flex: 1;
   min-height: 0;
@@ -441,9 +459,24 @@
   font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   font-size: 11px;
   line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.xml-preview-textarea {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(120, 160, 220, 0.16);
+  border-radius: 8px;
+  background: rgba(7, 12, 24, 0.88);
+  color: #d7e7ff;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  resize: none;
+  box-sizing: border-box;
 }
 
 .xml-preview-resizer {

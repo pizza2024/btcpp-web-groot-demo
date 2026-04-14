@@ -16,6 +16,30 @@ describe('parseXML', () => {
     expect(hasBuiltinSequence).toBe(true);
   });
 
+  it('generates unique node ids for large imported trees', () => {
+    const repeatedLeaves = Array.from({ length: 80 }, () => '<Script code=""/>').join('\n');
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4" main_tree_to_execute="Tree1">
+  <BehaviorTree ID="Tree1">
+    <Sequence>
+      ${repeatedLeaves}
+    </Sequence>
+  </BehaviorTree>
+</root>`;
+
+    const project = parseXML(xml);
+    const ids = new Set<string>();
+
+    const visit = (node: (typeof project.trees)[number]['root']) => {
+      expect(ids.has(node.id)).toBe(false);
+      ids.add(node.id);
+      node.children.forEach(visit);
+    };
+
+    visit(project.trees[0].root);
+    expect(ids.size).toBeGreaterThan(80);
+  });
+
   it('throws when XML has no BehaviorTree', () => {
     const xml = '<?xml version="1.0"?><root BTCPP_format="4"></root>';
     expect(() => parseXML(xml)).toThrow('No <BehaviorTree> elements found in XML');
