@@ -23,7 +23,7 @@ describe('parseXML', () => {
 });
 
 describe('serializeXML', () => {
-  it('serializes with escaped attributes and keeps custom models', () => {
+  it('serializes leaf nodes using concrete tag names', () => {
     const project = defaultProject();
     project.mainTreeId = 'Main & Tree';
     project.trees[0].root.children.push({
@@ -32,13 +32,53 @@ describe('serializeXML', () => {
       ports: { message: 'hello <world> & "team"' },
       children: [],
     });
-    project.nodeModels.push({ type: 'Say', category: 'Action', ports: [] });
+    project.nodeModels.push({
+      type: 'Say',
+      category: 'Action',
+      ports: [{ name: 'message', direction: 'input' }],
+    });
 
     const xml = serializeXML(project);
 
     expect(xml).toContain('main_tree_to_execute="Main &amp; Tree"');
     expect(xml).toContain('message="hello &lt;world&gt; &amp; &quot;team&quot;"');
-    expect(xml).toContain('<Action ID="Say"/>');
+    expect(xml).toContain('<Say message="hello &lt;world&gt; &amp; &quot;team&quot;"/>');
+  });
+
+  it('serializes built-in Groot2 leaf nodes with empty declared ports', () => {
+    const project = defaultProject();
+    project.trees[0].root.children.push({
+      id: 'sequence',
+      type: 'Sequence',
+      ports: {},
+      children: [
+        {
+          id: 'script-1',
+          type: 'Script',
+          ports: {},
+          children: [],
+        },
+        {
+          id: 'script-2',
+          type: 'Script',
+          ports: { code: '' },
+          children: [],
+        },
+        {
+          id: 'set-blackboard',
+          type: 'SetBlackboard',
+          name: 'Hello',
+          ports: {},
+          children: [],
+        },
+      ],
+    });
+
+    const xml = serializeXML(project);
+
+    expect(xml).toContain('<Sequence>');
+    expect(xml).toContain('<Script code=""/>');
+    expect(xml).toContain('<SetBlackboard name="Hello" value="" output_key=""/>');
   });
 
   it('supports parse -> serialize -> parse roundtrip for core fields', () => {

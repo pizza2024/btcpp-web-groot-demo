@@ -78,14 +78,47 @@ export function treeToFlow(
 }
 
 export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree {
-  // Build adjacency: parentId -> [{childId, edgeId}]
-  const children: Map<string, string[]> = new Map();
-  nodes.forEach((n) => children.set(n.id, []));
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
 
-  edges.forEach((e) => {
-    const arr = children.get(e.source) ?? [];
-    arr.push(e.target);
-    children.set(e.source, arr);
+  type ChildEdge = {
+    targetId: string;
+    sourceHandleOrder?: number;
+    originalIndex: number;
+  };
+
+  // Build adjacency and preserve sibling order using explicit handle indices first,
+  // then fall back to canvas left-to-right layout for legacy edges.
+  const children: Map<string, ChildEdge[]> = new Map();
+  nodes.forEach((node) => children.set(node.id, []));
+
+  edges.forEach((edge, index) => {
+    const arr = children.get(edge.source) ?? [];
+    arr.push({
+      targetId: edge.target,
+      sourceHandleOrder: parseHandleOrder(edge.sourceHandle),
+      originalIndex: index,
+    });
+    children.set(edge.source, arr);
+  });
+
+  children.forEach((childEdges) => {
+    childEdges.sort((left, right) => {
+      if (left.sourceHandleOrder !== undefined && right.sourceHandleOrder !== undefined && left.sourceHandleOrder !== right.sourceHandleOrder) {
+        return left.sourceHandleOrder - right.sourceHandleOrder;
+      }
+      if (left.sourceHandleOrder !== undefined) return -1;
+      if (right.sourceHandleOrder !== undefined) return 1;
+
+      const leftNode = nodeById.get(left.targetId);
+      const rightNode = nodeById.get(right.targetId);
+      const deltaX = (leftNode?.position.x ?? 0) - (rightNode?.position.x ?? 0);
+      if (deltaX !== 0) return deltaX;
+
+      const deltaY = (leftNode?.position.y ?? 0) - (rightNode?.position.y ?? 0);
+      if (deltaY !== 0) return deltaY;
+
+      return left.originalIndex - right.originalIndex;
+    });
   });
 
   // Find root node (no incoming edges)
@@ -102,7 +135,7 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
   const rootNode = rootNodes[0];
 
   function buildNode(nodeId: string): BTTreeNode {
-    const flowNode = nodes.find((n) => n.id === nodeId)!;
+    const flowNode = nodeById.get(nodeId)!;
     const data = flowNode.data as {
       nodeType: string;
       label: string;
@@ -111,7 +144,7 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
       postconditions?: Record<string, string>;
       description?: string;
     };
-    const childIds = children.get(nodeId) ?? [];
+    const childIds = (children.get(nodeId) ?? []).map((child) => child.targetId);
     return {
       id: nodeId,
       type: data.nodeType,
@@ -125,6 +158,15 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
   }
 
   return { id: treeId, root: buildNode(rootNode.id) };
+}
+
+function parseHandleOrder(handle?: string | null): number | undefined {
+  if (!handle) return undefined;
+  const match = handle.match(/(\d+)$/);
+  if (!match) return undefined;
+
+  const order = Number.parseInt(match[1], 10);
+  return Number.isNaN(order) ? undefined : order;
 }
 
 /**
