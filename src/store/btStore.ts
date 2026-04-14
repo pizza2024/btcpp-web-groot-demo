@@ -632,7 +632,7 @@ export const useBTStore = create<BTStore>()(
       } catch { /* tree fetch may fail if runtime not ready */ }
 
       // Subscribe to live status updates
-      client.send('subscribe', { topic: 'status' });
+      await client.subscribe('status');
     } catch (e) {
       const err = e instanceof Error ? e.message : 'Connection failed';
       setGroot2Error(err);
@@ -642,7 +642,6 @@ export const useBTStore = create<BTStore>()(
   },
 
   disconnectGroot2() {
-    const { getGroot2Client } = get();
     // We can't directly call the client's disconnect from here since it's not in state
     // Use resetGroot2Client instead
     import('../utils/groot2Client').then(({ resetGroot2Client }) => {

@@ -48,11 +48,15 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
 }) => {
   const isSubTree = nodeType === 'SubTree';
   const isLeaf = nodeCategory === 'Action' || nodeCategory === 'Condition';
+  const autoRemapEnabled = ports['__autoremap'] === 'true' || ports['__autoremap'] === '1';
+  const preconditionsKey = JSON.stringify(preconditions);
+  const postconditionsKey = JSON.stringify(postconditions);
+  const portRemapKey = JSON.stringify(portRemap);
 
   // ─── Instance state ───────────────────────────────────────────────────
   const [instanceName, setInstanceName] = useState(nodeName ?? '');
   const [subTreeTarget, setSubTreeTarget] = useState(isSubTree ? (nodeName ?? '') : '');
-  const [autoRemap, setAutoRemap] = useState(ports['__autoremap'] === 'true' || ports['__autoremap'] === '1');
+  const [autoRemap, setAutoRemap] = useState(autoRemapEnabled);
   const [portRemapEntries, setPortRemapEntries] = useState<Array<{ local: string; external: string }>>(
     Object.entries(portRemap).map(([k, v]) => ({ local: k, external: v }))
   );
@@ -68,7 +72,7 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   useEffect(() => {
     setInstanceName(nodeName ?? '');
     setSubTreeTarget(isSubTree ? (nodeName ?? '') : '');
-    setAutoRemap(ports['__autoremap'] === 'true' || ports['__autoremap'] === '1');
+    setAutoRemap(autoRemapEnabled);
 
     // Preconditions
     const initPre: Record<string, string> = {};
@@ -87,7 +91,7 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
     setPortRemapEntries(
       Object.entries(portRemap).map(([k, v]) => ({ local: k, external: v }))
     );
-  }, [nodeId, portRemap]);
+  }, [nodeId, nodeName, isSubTree, autoRemapEnabled, initialDescription, preconditionsKey, postconditionsKey, portRemapKey]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────
   const handlePreChange = (key: string, value: string) => {

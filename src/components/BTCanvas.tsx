@@ -30,7 +30,7 @@ import { autoLayout } from '../utils/btLayout';
 import { validatePortConnection } from '../utils/btXml';
 import BTFlowNode from './nodes/BTFlowNode';
 import BTFlowEdge from './edges/BTFlowEdge';
-import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
+import { BUILTIN_NODES, CATEGORY_COLORS, EDITOR_ROOT_TYPE } from '../types/bt-constants';
 import { useContextMenu, type MenuConfig, type MenuItem } from './ContextMenu';
 import NodePicker from './NodePicker';
 import NodeEditModal from './NodeEditModal';
@@ -114,6 +114,28 @@ function buildFlowNodes(
   return { nodes, edges };
 }
 
+function collectAttachedNodeIds(rootId: string, edges: Edge[]): Set<string> {
+  const adjacency = new Map<string, string[]>();
+  edges.forEach((edge) => {
+    const arr = adjacency.get(edge.source) ?? [];
+    arr.push(edge.target);
+    adjacency.set(edge.source, arr);
+  });
+
+  const visited = new Set<string>();
+  const queue: string[] = [rootId];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const children = adjacency.get(current) ?? [];
+    children.forEach((child) => {
+      if (!visited.has(child)) queue.push(child);
+    });
+  }
+  return visited;
+}
+
 const BTCanvas: React.FC = () => {
   const {
     project,
@@ -181,7 +203,7 @@ const BTCanvas: React.FC = () => {
 
   const deleteEdge = useCallback((edgeId: string) => {
     setEdges((prev) => {
-      const edge = prev.find((e) => e.id !== edgeId);
+      const edge = prev.find((e) => e.id === edgeId);
       if (!edge) return prev;
 
       const targetId = edge.target;
@@ -403,7 +425,7 @@ const BTCanvas: React.FC = () => {
 
         // Add back detached (orphan) nodes - they should stay on canvas even after project sync
         const attachedIds = new Set(laidOutNodes.map((n) => n.id));
-        const detachedToRestore = nodes.filter((n) => detachedNodeIds.has(n.id) && !attachedIds.has(n.id));
+        const detachedToRestore = prevNodes.filter((n) => detachedNodeIds.has(n.id) && !attachedIds.has(n.id));
         return [...merged, ...detachedToRestore];
       });
       // Inject target node status into edges for RUNNING animation
@@ -413,7 +435,7 @@ const BTCanvas: React.FC = () => {
       }));
       setEdges(withSelectedEdge(edgesWithStatus, selectedEdgeId, deleteEdge));
     }
-  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds, detachedNodeIds, nodes]);
+  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds, detachedNodeIds]);
 
   // Highlight selected nodes
   React.useEffect(() => {
@@ -769,9 +791,26 @@ const BTCanvas: React.FC = () => {
         // so edits via PropertiesPanel (which update localNodes directly) are saved correctly.
         const { localNodes: freshNodes, localEdges: freshEdges, project: p, activeTreeId: treeId } = useBTStore.getState();
 
-        // Filter out detached (orphan) nodes when saving to keep tree structure clean
-        const attachedNodes = freshNodes.filter((n) => !detachedNodeIds.has(n.id));
-        const tree = flowToTree(treeId, attachedNodes, freshEdges);
+        // Keep only nodes reachable from ROOT when persisting tree structure.
+        // Non-reachable nodes are tracked as detached and kept on canvas.
+        const rootNode = freshNodes.find((n) => {
+          const data = n.data as { nodeType?: string; isRoot?: boolean };
+          return data.isRoot === true || data.nodeType === EDITOR_ROOT_TYPE;
+        });
+        const attachedIds = rootNode
+          ? collectAttachedNodeIds(rootNode.id, freshEdges)
+          : new Set(freshNodes.map((n) => n.id));
+
+        const nextDetachedIds = new Set(
+          freshNodes.filter((n) => !attachedIds.has(n.id)).map((n) => n.id)
+        );
+        setDetachedNodeIds(nextDetachedIds);
+
+        const attachedNodes = freshNodes.filter((n) => attachedIds.has(n.id));
+        const attachedEdges = freshEdges.filter(
+          (e) => attachedIds.has(e.source) && attachedIds.has(e.target)
+        );
+        const tree = flowToTree(treeId, attachedNodes, attachedEdges);
         const currentTree = p.trees.find((t) => t.id === treeId);
 
         // Only skip save if node structure unchanged AND edges unchanged.

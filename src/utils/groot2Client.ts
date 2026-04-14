@@ -93,7 +93,7 @@ export class Groot2Client {
         this.scheduleReconnect();
       };
 
-      this.ws.onerror = (e) => {
+      this.ws.onerror = () => {
         // Only reject the connect promise on first error
         if (this.reconnectAttempts === 0) {
           reject(new Error('WebSocket connection failed'));
@@ -172,6 +172,11 @@ export class Groot2Client {
 
   async ping(): Promise<void> {
     await this.send('ping');
+  }
+
+  /** Subscribe to a server topic (e.g., status updates) */
+  async subscribe(topic: string): Promise<void> {
+    await this.send('subscribe', { topic });
   }
 
   /** Fetch the full tree XML from the BT.CPP runtime */

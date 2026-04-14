@@ -62,7 +62,7 @@ const BTFlowEdge: React.FC<EdgeProps> = ({
         id={id}
         path={edgePath}
         style={{ ...style, stroke: strokeColor, strokeWidth }}
-        className={`react-flow__edge bt-flow-edge${hasWarning ? ' bt-edge-warning' : ''}${isInvalid ? ' bt-edge-invalid' : ''}${isRunning ? ' bt-edge-running' : ''}`
+        className={`react-flow__edge bt-flow-edge${hasWarning ? ' bt-edge-warning' : ''}${isInvalid ? ' bt-edge-invalid' : ''}${isRunning ? ' bt-edge-running' : ''}`}
       />
       {/* Warning icon + label for type mismatch */}
       {hasWarning && (
