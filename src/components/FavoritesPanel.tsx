@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useBTStore } from '../store/btStore';
+import { useBTStore, useBTStoreApi } from '../store/BTStoreProvider';
 
 interface FavoriteTemplate {
   id: string;
@@ -19,6 +19,7 @@ interface FavoritesPanelProps {
 
 const FavoritesPanel: React.FC<FavoritesPanelProps> = ({ onDragStart }) => {
   const { t } = useTranslation();
+  const storeApi = useBTStoreApi();
   const { favorites, removeFavorite } = useBTStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -37,7 +38,7 @@ const FavoritesPanel: React.FC<FavoritesPanelProps> = ({ onDragStart }) => {
 
   const handleEditSave = (template: FavoriteTemplate) => {
     if (editName.trim() && editName !== template.name) {
-      useBTStore.getState().updateFavorite(template.id, editName.trim());
+      storeApi.getState().updateFavorite(template.id, editName.trim());
     }
     setEditingId(null);
   };

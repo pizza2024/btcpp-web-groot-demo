@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useBTStore } from '../store/btStore';
+import { useBTStore } from '../store/BTStoreProvider';
 import { CATEGORY_COLORS } from '../types/bt-constants';
 import type { BTNodeCategory, BTNodeDefinition } from '../types/bt';
 import NodeModelModal from './NodeModelModal';

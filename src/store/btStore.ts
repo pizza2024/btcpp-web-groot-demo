@@ -55,7 +55,7 @@ export interface FavoriteTemplate {
   createdAt: number;
 }
 
-interface BTStore {
+export interface BTStore {
   project: BTProject;
   activeTreeId: string;
   selectedNodeId: string | null;
@@ -156,7 +156,7 @@ const defaultDebug: DebugState = {
   entries: [],
 };
 
-export const useBTStore = create<BTStore>()(
+export const createBTStore = (storageKey = 'bt-tree-editor') => create<BTStore>()(
   persist(
     (set, get) => ({
   project: defaultProject(),
@@ -698,7 +698,7 @@ export const useBTStore = create<BTStore>()(
   },
 }),
     {
-      name: 'bt-tree-editor', // localStorage key
+      name: storageKey,
       version: 2, // bump when node model schema changes
       partialize: (state) => ({
         project: state.project,
@@ -707,6 +707,10 @@ export const useBTStore = create<BTStore>()(
     }
   )
 );
+
+export const defaultBTStore = createBTStore();
+export const useBTStore = defaultBTStore;
+export type BTStoreApi = ReturnType<typeof createBTStore>;
 
 function findNodeId(node: import('../types/bt').BTTreeNode, type: string, name: string): string | null {
   const nodeName = node.name ?? node.type;

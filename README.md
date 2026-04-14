@@ -26,6 +26,51 @@ npm run dev
 
 Then open <http://localhost:5174/>.
 
+## Build Modes
+
+This project now supports both deployment modes:
+
+1. **Standalone web editor** (current behavior)
+2. **Embeddable React component** (`BTEditor`) for other projects
+
+### Standalone build
+
+```bash
+pnpm run build:web
+```
+
+### Component library build
+
+```bash
+pnpm run build:lib
+```
+
+### Build both
+
+```bash
+pnpm run build
+```
+
+## Embed In Another React App
+
+```tsx
+import { BTEditor } from 'btcpp-web-groot-demo';
+
+export function Example() {
+	return (
+		<div style={{ width: 500, height: 500 }}>
+			<BTEditor storageKey="bt-editor-a" />
+		</div>
+	);
+}
+```
+
+Notes:
+
+1. `BTEditor` fills its parent container (`width: 100%`, `height: 100%`).
+2. Use a unique `storageKey` per editor instance to isolate persisted state.
+3. The standalone page remains available and unchanged for independent deployment.
+
 ## Usage
 
 1. **Palette → Canvas**: Drag a node type from the left palette onto the canvas.

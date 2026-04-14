@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useBTStore } from '../store/btStore';
+import { useBTStore } from '../store/BTStoreProvider';
 
 const TreeManager: React.FC = () => {
   const { t } = useTranslation();

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useBTStore } from '../store/btStore';
+import { useBTStore } from '../store/BTStoreProvider';
 import type { BTNodeCategory, BTNodeDefinition, BTPort, PortDirection } from '../types/bt';
 import { validateNodeModel } from '../utils/btXml';
 import type { MissingNodeModelCandidate } from '../utils/btXml';

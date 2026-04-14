@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useBTStore } from '../store/btStore';
+import { useBTStore } from '../store/BTStoreProvider';
 import { STATUS_COLORS } from '../types/bt-constants';
 
 const SAMPLE_LOG = `0 1 Sequence Root RUNNING MainTree

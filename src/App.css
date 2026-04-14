@@ -2,12 +2,18 @@
 .app-layout {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+}
+
+.standalone-shell {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .main-area {

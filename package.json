@@ -3,9 +3,19 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "main": "./dist/bt-editor.cjs.js",
+  "module": "./dist/bt-editor.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/bt-editor.es.js",
+      "require": "./dist/bt-editor.cjs.js"
+    }
+  },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "pnpm run build:web && pnpm run build:lib",
+    "build:web": "tsc -b && vite build",
+    "build:lib": "vite build --config vite.lib.config.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",

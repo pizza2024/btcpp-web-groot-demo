@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useBTStore } from '../store/btStore';
+import { useBTStore, useBTStoreApi } from '../store/BTStoreProvider';
 import type { BTNodeDefinition } from '../types/bt';
 import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
 import type { Node } from '@xyflow/react';
@@ -26,6 +26,7 @@ const POST_I18N_KEYS: Record<string, string> = {
 
 const PropertiesPanel: React.FC = () => {
   const { t } = useTranslation();
+  const storeApi = useBTStoreApi();
   const { project, activeTreeId, selectedNodeId, updateNodePorts, updateNodeName, updateNodeConditions, localNodes, setLocalCanvas } = useBTStore();
 
   // Use refs to always get current values in callbacks (avoid stale closure)
@@ -118,7 +119,7 @@ const PropertiesPanel: React.FC = () => {
   // For nodes only in localNodes (not yet synced), only update localNodes.
   const handleSavePorts = useCallback(() => {
     if (!btNode) return;
-    const { localEdges } = useBTStore.getState();
+    const { localEdges } = storeApi.getState();
     const currentLocalNodes = localNodesRef.current;
     // Build updated flow nodes with new ports merged
     const mergedPorts = { ...btNode.ports, ...localPorts };
@@ -144,7 +145,7 @@ const PropertiesPanel: React.FC = () => {
   // Save handler for name
   const handleSaveName = useCallback(() => {
     if (!btNode) return;
-    const { localEdges } = useBTStore.getState();
+    const { localEdges } = storeApi.getState();
     const currentLocalNodes = localNodesRef.current;
     const updated = currentLocalNodes.map((n: Node) => {
       if (n.id !== btNode.id) return n;
@@ -165,7 +166,7 @@ const PropertiesPanel: React.FC = () => {
   // Save handler for SubTree target
   const handleSaveSubTree = useCallback(() => {
     if (!btNode) return;
-    const { localEdges } = useBTStore.getState();
+    const { localEdges } = storeApi.getState();
     const currentLocalNodes = localNodesRef.current;
     const updated = currentLocalNodes.map((n: Node) => {
       if (n.id !== btNode.id) return n;
@@ -186,7 +187,7 @@ const PropertiesPanel: React.FC = () => {
   // Save handler for pre/post conditions
   const handleSaveConditions = useCallback(() => {
     if (!btNode) return;
-    const { localEdges } = useBTStore.getState();
+    const { localEdges } = storeApi.getState();
     const currentLocalNodes = localNodesRef.current;
 
     // Clean up empty conditions
