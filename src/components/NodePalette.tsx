@@ -99,6 +99,7 @@ const NodePalette: React.FC = () => {
                   def={node}
                   colors={colors}
                   onDragStart={onDragStart}
+                  customModelLabel={t('palette.customModel')}
                   onEdit={!node.builtin ? () => setModelModal({ mode: 'edit', def: node }) : undefined}
                   onDelete={!node.builtin ? deleteNodeModel : undefined}
                 />
@@ -135,6 +136,7 @@ const NodePalette: React.FC = () => {
                       def={node}
                       colors={colors}
                       onDragStart={onDragStart}
+                      customModelLabel={t('palette.customModel')}
                       onEdit={!node.builtin ? () => setModelModal({ mode: 'edit', def: node }) : undefined}
                       onDelete={!node.builtin ? deleteNodeModel : undefined}
                     />
@@ -191,11 +193,12 @@ interface PaletteItemProps {
   def: BTNodeDefinition;
   colors: { bg: string; border: string; text: string };
   onDragStart: (e: React.DragEvent, type: string) => void;
+  customModelLabel: string;
   onEdit?: (def: BTNodeDefinition) => void;
   onDelete?: (type: string) => void;
 }
 
-const PaletteItem: React.FC<PaletteItemProps> = ({ def, colors, onDragStart, onEdit, onDelete }) => (
+const PaletteItem: React.FC<PaletteItemProps> = ({ def, colors, onDragStart, customModelLabel, onEdit, onDelete }) => (
   <div className="palette-item-wrapper">
     <div
       draggable
@@ -204,7 +207,16 @@ const PaletteItem: React.FC<PaletteItemProps> = ({ def, colors, onDragStart, onE
       style={{ background: colors.bg, borderColor: colors.border, color: colors.text }}
       title={def.description || def.type}
     >
-      <span style={{ flex: 1, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span className="palette-item-label" style={{ flex: 1, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {!def.builtin && (
+          <span
+            className="palette-custom-icon"
+            title={customModelLabel}
+            aria-label={customModelLabel}
+          >
+            ★
+          </span>
+        )}
         {def.type}
       </span>
     </div>

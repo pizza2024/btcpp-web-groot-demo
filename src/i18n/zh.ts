@@ -135,6 +135,7 @@ const zh = {
     searchPlaceholder: '搜索模型...',
     searchNodesPlaceholder: '搜索节点...',
     noNodesFound: '未找到节点',
+    customModel: '自定义模型',
     allCategories: '全部',
     categories: {
       actions: '动作',
