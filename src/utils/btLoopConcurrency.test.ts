@@ -47,7 +47,7 @@ function canConnect(
   sourceCategory: string,
   targetId: string,
   existingEdges: Edge[],
-  nodes: Node[]
+  _nodes: Node[]
 ): { allowed: boolean; reason?: string } {
   const sourceNode: Node = {
     id: sourceId,
