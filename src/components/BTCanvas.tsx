@@ -131,6 +131,8 @@ const BTCanvas: React.FC = () => {
   } = useBTStore();
 
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastMouseClientPositionRef = useRef<{ x: number; y: number } | null>(null);
   const [zoomLevel, setZoomLevel] = React.useState(1);
   const [selectedEdgeId, setSelectedEdgeId] = React.useState<string | null>(null);
   // Track last pane click for double-click detection
@@ -160,12 +162,14 @@ const BTCanvas: React.FC = () => {
   const [nodePickerPosition, setNodePickerPosition] = React.useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null);
 
   // Track nodes that became orphan (disconnected from tree) - they stay on canvas but excluded from tree
-  const [detachedNodeIds, setDetachedNodeIds] = React.useState<Set<string>>(new Set());
+  const detachedNodeIdsRef = useRef<Set<string>>(new Set());
 
   // Track if we should force layout (tree switch or initial load)
   const forceLayoutRef = useRef(true);
   // Track the last tree we synced from, to detect real project changes
   const lastSyncedTreeRef = useRef<string | null>(null);
+  // Internal save-to-project updates should not immediately rebuild local canvas state.
+  const skipNextProjectSyncRef = useRef(false);
 
   const initial = useMemo(
     () => buildFlowNodes(activeTreeId, project, debugState.nodeStatuses),
@@ -175,9 +179,18 @@ const BTCanvas: React.FC = () => {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
+  const nodesRef = useRef(nodes);
+
+  React.useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
 
   const deleteEdge = useCallback((edgeId: string) => {
-    setEdges((prev) => prev.filter((edge) => edge.id !== edgeId));
+    setEdges((prev) => {
+      const nextEdges = prev.filter((edge) => edge.id !== edgeId);
+      detachedNodeIdsRef.current = getDetachedNodeIds(nodesRef.current, nextEdges);
+      return nextEdges;
+    });
     setSelectedEdgeId((prev) => (prev === edgeId ? null : prev));
   }, [setEdges]);
 
@@ -326,6 +339,13 @@ const BTCanvas: React.FC = () => {
   // Sync: responds to tree switch and external project changes (like XML load)
   // NOT triggered by our own saveToStore (we use forceLayoutRef for that)
   React.useEffect(() => {
+    if (skipNextProjectSyncRef.current) {
+      skipNextProjectSyncRef.current = false;
+      lastSyncedTreeRef.current = activeTreeId;
+      forceLayoutRef.current = false;
+      return;
+    }
+
     // Force layout when switching trees or first load OR when project changed (e.g., loaded new XML)
     const shouldForceLayout = forceLayoutRef.current || lastSyncedTreeRef.current !== activeTreeId;
     if (shouldForceLayout) {
@@ -391,7 +411,7 @@ const BTCanvas: React.FC = () => {
 
         // Add back detached (orphan) nodes - they should stay on canvas even after project sync
         const attachedIds = new Set(laidOutNodes.map((n) => n.id));
-        const detachedToRestore = prevNodes.filter((n) => detachedNodeIds.has(n.id) && !attachedIds.has(n.id));
+        const detachedToRestore = prevNodes.filter((n) => detachedNodeIdsRef.current.has(n.id) && !attachedIds.has(n.id));
         return [...merged, ...detachedToRestore];
       });
       // Inject target node status into edges for RUNNING animation
@@ -401,7 +421,7 @@ const BTCanvas: React.FC = () => {
       }));
       setEdges(withSelectedEdge(edgesWithStatus, selectedEdgeId, deleteEdge));
     }
-  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds, detachedNodeIds]);
+  }, [activeTreeId, project, debugState.nodeStatuses, selectedEdgeId, deleteEdge, collapsedNodeIds]);
 
   // Highlight selected nodes
   React.useEffect(() => {
@@ -670,6 +690,37 @@ const BTCanvas: React.FC = () => {
     [selectNode, toggleSelection, menuState.show, hideMenu]
   );
 
+  const handleCanvasMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    lastMouseClientPositionRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+  }, []);
+
+  const getPasteFlowPosition = useCallback((clientPosition?: { x: number; y: number }) => {
+    const rfInstance = rfInstanceRef.current;
+    if (!rfInstance) return undefined;
+
+    const pointer = clientPosition ?? lastMouseClientPositionRef.current;
+    if (!pointer) return undefined;
+
+    return rfInstance.screenToFlowPosition(pointer);
+  }, []);
+
+  const pasteClipboardNode = useCallback(
+    (clientPosition?: { x: number; y: number }) => {
+      const newNode = pasteNode(getPasteFlowPosition(clientPosition));
+      if (!newNode) return null;
+
+      pushHistory();
+      setNodes((prev) => [...prev, newNode]);
+      setSelectedEdgeId(null);
+      selectNode(newNode.id);
+      return newNode;
+    },
+    [getPasteFlowPosition, pasteNode, pushHistory, selectNode, setNodes]
+  );
+
   const onPaneClick = useCallback(() => {
     // Update zoom level display
     const zoom = rfInstanceRef.current?.getZoom();
@@ -766,7 +817,7 @@ const BTCanvas: React.FC = () => {
         // Non-reachable nodes are tracked as detached and kept on canvas.
         const attachedIds = getAttachedNodeIds(freshNodes, freshEdges);
         const nextDetachedIds = getDetachedNodeIds(freshNodes, freshEdges);
-        setDetachedNodeIds(nextDetachedIds);
+        detachedNodeIdsRef.current = nextDetachedIds;
 
         const attachedNodes = freshNodes.filter((n) => attachedIds.has(n.id));
         const attachedEdges = freshEdges.filter(
@@ -785,6 +836,7 @@ const BTCanvas: React.FC = () => {
         if (edgesUnchanged) return;
 
         const trees = p.trees.map((t) => (t.id === treeId ? tree : t));
+        skipNextProjectSyncRef.current = true;
         useBTStore.setState({ project: { ...p, trees } });
       } catch {
         // ignore intermediate invalid states
@@ -1008,6 +1060,9 @@ const BTCanvas: React.FC = () => {
           useBTStore.getState().pushHistory();
           setNodes((prev) => prev.filter((n) => !idsToDelete.has(n.id)));
           setEdges((prev) => prev.filter((e) => !idsToDelete.has(e.source) && !idsToDelete.has(e.target)));
+          const nextDetached = new Set(detachedNodeIdsRef.current);
+          idsToDelete.forEach((id) => nextDetached.delete(id));
+          detachedNodeIdsRef.current = nextDetached;
           clearSelection();
         } else if (selectedEdgeId) {
           useBTStore.getState().pushHistory();
@@ -1110,19 +1165,14 @@ const BTCanvas: React.FC = () => {
       // Ctrl+V: Paste copied node
       if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
         event.preventDefault();
-        const newNode = pasteNode();
-        if (newNode) {
-          pushHistory();
-          setNodes((prev) => [...prev, newNode]);
-          selectNode(newNode.id);
-        }
+        pasteClipboardNode();
         return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deleteEdge, selectNode, clearSelection, selectedEdgeId, selectedNodeIds, nodes, copyNode, pasteNode, pushHistory, showHelp, setShowHelp, showNodeSearch, setShowNodeSearch]);
+  }, [deleteEdge, selectNode, clearSelection, selectedEdgeId, selectedNodeIds, nodes, copyNode, pasteClipboardNode, pushHistory, showHelp, setShowHelp, showNodeSearch, setShowNodeSearch]);
 
   // Handle toolbar help button
   React.useEffect(() => {
@@ -1284,11 +1334,9 @@ const BTCanvas: React.FC = () => {
             setNodes((prev) => prev.filter((n) => n.id !== deletedId));
             setEdges((prev) => prev.filter((e) => e.source !== deletedId && e.target !== deletedId));
             // Remove from detached set if it was tracked as orphan
-            setDetachedNodeIds((prev) => {
-              const next = new Set(prev);
-              next.delete(deletedId);
-              return next;
-            });
+            const nextDetached = new Set(detachedNodeIdsRef.current);
+            nextDetached.delete(deletedId);
+            detachedNodeIdsRef.current = nextDetached;
           },
         },
         ...(hasChildren ? [{
@@ -1311,11 +1359,9 @@ const BTCanvas: React.FC = () => {
             // Delete all edges connected to subtree nodes
             setEdges((prev) => prev.filter((e) => !subtreeNodeIds.has(e.source) && !subtreeNodeIds.has(e.target)));
             // Remove deleted nodes from detached set
-            setDetachedNodeIds((prev) => {
-              const next = new Set(prev);
-              subtreeNodeIds.forEach((id) => next.delete(id));
-              return next;
-            });
+            const nextDetached = new Set(detachedNodeIdsRef.current);
+            subtreeNodeIds.forEach((id) => nextDetached.delete(id));
+            detachedNodeIdsRef.current = nextDetached;
           },
         }] : []),
         ...(hasChildren ? [{
@@ -1351,12 +1397,7 @@ const BTCanvas: React.FC = () => {
           label: 'Paste Node',
           icon: '📋',
           action: () => {
-            const newNode = pasteNode();
-            if (newNode) {
-              pushHistory();
-              setNodes((prev) => [...prev, newNode]);
-              selectNode(newNode.id);
-            }
+            pasteClipboardNode(menuState.position);
           },
         }] : []),
         {
@@ -1395,10 +1436,10 @@ const BTCanvas: React.FC = () => {
         },
       ] : [],
     };
-  }, [menuState, nodes, deleteEdge, copyNode, pasteNode, pushHistory, selectNode, clearSelection, toggleNodeCollapse]);
+  }, [menuState, nodes, deleteEdge, copyNode, pasteClipboardNode, clearSelection, toggleNodeCollapse]);
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
+    <div ref={canvasContainerRef} onMouseMove={handleCanvasMouseMove} style={{ width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

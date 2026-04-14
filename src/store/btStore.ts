@@ -120,7 +120,7 @@ interface BTStore {
   // Clipboard (copy/paste)
   clipboard: { node: Node; offsetX: number; offsetY: number } | null;
   copyNode: (node: Node) => void;
-  pasteNode: () => Node | null;
+  pasteNode: (position?: { x: number; y: number }) => Node | null;
 
   // Theme
   theme: 'dark' | 'light';
@@ -406,19 +406,20 @@ export const useBTStore = create<BTStore>()(
     set({ clipboard: { node, offsetX: 50, offsetY: 50 } });
   },
 
-  pasteNode() {
+  pasteNode(position) {
     const { clipboard } = get();
     if (!clipboard) return null;
 
     const { node } = clipboard;
     const newId = `n_${Math.random().toString(36).slice(2, 9)}`;
+    const nextPosition = position ?? {
+      x: node.position.x + clipboard.offsetX,
+      y: node.position.y + clipboard.offsetY,
+    };
     const newNode: Node = {
       ...node,
       id: newId,
-      position: {
-        x: node.position.x + clipboard.offsetX,
-        y: node.position.y + clipboard.offsetY,
-      },
+      position: nextPosition,
       selected: false,
       data: { ...node.data },
     };

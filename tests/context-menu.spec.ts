@@ -240,6 +240,7 @@ test.describe('Context Menu', () => {
       const edges = page.locator('.react-flow__edge');
       const edgeCount = await edges.count();
       if (edgeCount === 0) return;
+      const nodeCountBefore = await page.locator('.react-flow__node').count();
 
       // Get the ID of the edge to be deleted
       const edgeBefore = await edges.first().getAttribute('id');
@@ -258,6 +259,10 @@ test.describe('Context Menu', () => {
       // Verify the specific edge is gone
       const edgeAfter = await page.locator(`#${edgeBefore}`).count();
       expect(edgeAfter).toBe(0);
+
+      // Deleting an edge should not remove detached subtree nodes from canvas.
+      const nodeCountAfter = await page.locator('.react-flow__node').count();
+      expect(nodeCountAfter).toBe(nodeCountBefore);
     });
   });
 

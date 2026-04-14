@@ -21,7 +21,9 @@ test.describe('Copy/Paste', () => {
     await page.waitForTimeout(200);
 
     // Paste with Ctrl+V
-    await page.keyboard.press('Control+v');
+    await page.evaluate(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true, bubbles: true }));
+    });
     await page.waitForTimeout(500);
 
     // Should now have one more node
@@ -32,35 +34,48 @@ test.describe('Copy/Paste', () => {
     expect(nodeCount).toBeGreaterThan(1);
   });
 
-  test('Ctrl+V pastes copied node with offset', async ({ page }) => {
+  test('Ctrl+V pastes copied node near mouse position', async ({ page }) => {
     await loadSampleTree(page);
     await page.waitForTimeout(500);
 
-    // Get position of first non-ROOT node before copy
     const nodes = page.locator('.react-flow__node');
     const nodeBefore = nodes.nth(1);
-    const boxBefore = await nodeBefore.boundingBox();
+    const nodeCountBeforePaste = await nodes.count();
 
-    // Select and copy
-    await nodeBefore.click();
-    await page.waitForTimeout(100);
-    await page.keyboard.press('Control+c');
+    await nodeBefore.click({ button: 'right' });
+    await page.waitForTimeout(200);
+    await page.locator('.context-menu').getByText('Copy Node').click();
     await page.waitForTimeout(200);
 
-    // Paste
+    const pane = page.locator('.react-flow__pane');
+    const paneBox = await pane.boundingBox();
+    expect(paneBox).not.toBeNull();
+
+    const targetPoint = {
+      x: Math.round((paneBox?.x ?? 0) + 220),
+      y: Math.round((paneBox?.y ?? 0) + 180),
+    };
+
+    await page.mouse.move(targetPoint.x, targetPoint.y);
+    await page.waitForTimeout(100);
+
     await page.keyboard.press('Control+v');
     await page.waitForTimeout(500);
 
-    // Pasted node should be offset (at least one axis should be different)
-    const nodeAfter = nodes.nth(2);
+    await expect(nodes).toHaveCount(nodeCountBeforePaste + 1);
+
+    const nodeAfter = nodes.nth(nodeCountBeforePaste);
     const boxAfter = await nodeAfter.boundingBox();
 
-    if (boxBefore && boxAfter) {
-      // At least one coordinate should be different due to offset
-      const xDiff = Math.abs(boxAfter.x - boxBefore.x);
-      const yDiff = Math.abs(boxAfter.y - boxBefore.y);
-      expect(xDiff + yDiff).toBeGreaterThan(0);
-    }
+    expect(boxAfter).not.toBeNull();
+
+    const pastedCenter = {
+      x: (boxAfter?.x ?? 0) + (boxAfter?.width ?? 0) / 2,
+      y: (boxAfter?.y ?? 0) + (boxAfter?.height ?? 0) / 2,
+    };
+
+    expect(Math.abs(pastedCenter.x - targetPoint.x)).toBeLessThan(120);
+    expect(Math.abs(pastedCenter.y - targetPoint.y)).toBeLessThan(100);
   });
 
   test('Ctrl+V without selection does nothing', async ({ page }) => {
