@@ -7,7 +7,8 @@ describe('parseXML', () => {
 
     expect(project.mainTreeId).toBe('MainTree');
     expect(project.trees).toHaveLength(2);
-    expect(project.trees[0].root.type).toBe('Sequence');
+    expect(project.trees[0].root.type).toBe('ROOT');
+    expect(project.trees[0].root.children[0].type).toBe('Sequence');
 
     const hasMoveToGoal = project.nodeModels.some((m) => m.type === 'MoveToGoal');
     const hasBuiltinSequence = project.nodeModels.some((m) => m.type === 'Sequence');

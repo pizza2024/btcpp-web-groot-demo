@@ -173,7 +173,14 @@ export function parseXML(xmlText: string): BTProject {
     const treeId = btEl.getAttribute('ID') || `Tree_${trees.length + 1}`;
     const rootEl = btEl.firstElementChild;
     if (!rootEl) return;
-    trees.push({ id: treeId, root: parseTreeNode(rootEl) });
+    const parsedRoot = parseTreeNode(rootEl);
+    const editorRoot: BTTreeNode = {
+      id: `n_root_${Math.random().toString(36).slice(2, 9)}`,
+      type: EDITOR_ROOT_TYPE,
+      ports: {},
+      children: [parsedRoot],
+    };
+    trees.push({ id: treeId, root: editorRoot });
   });
 
   if (trees.length === 0) {
@@ -205,7 +212,9 @@ export function parseXML(xmlText: string): BTProject {
   // Discover all unique node types used in the tree
   const discoveredTypes = new Set<string>();
   const collectTypes = (node: BTTreeNode) => {
-    discoveredTypes.add(node.type);
+    if (node.type !== EDITOR_ROOT_TYPE) {
+      discoveredTypes.add(node.type);
+    }
     node.children.forEach(collectTypes);
   };
   trees.forEach((t) => collectTypes(t.root));
