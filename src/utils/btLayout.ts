@@ -3,8 +3,9 @@ import type { Node, Edge } from '@xyflow/react';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 56;
-const NODE_GAP_X = 40;
-const NODE_GAP_Y = 60;
+const NODE_GAP_X = 24;
+const NODE_GAP_Y = 40;
+const SUBTREE_COMPACT_GAP_X = 18;
 
 function getChildIndex(node: Node): number | undefined {
   const data = node.data as { childIndex?: unknown } | undefined;
@@ -179,6 +180,132 @@ function dagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   });
 }
 
+function compactSiblingSubtrees(nodes: Node[], edges: Edge[]): void {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const childIdsByParent = buildChildIdsByParent(edges);
+  const sortedChildIdsByParent = new Map<string, string[]>();
+  childIdsByParent.forEach((childIds, parentId) => {
+    sortedChildIdsByParent.set(parentId, sortChildIdsByNodeOrder(childIds, nodeById));
+  });
+
+  const incomingCounts = new Map<string, number>();
+  nodes.forEach((node) => incomingCounts.set(node.id, 0));
+  edges.forEach((edge) => {
+    incomingCounts.set(edge.target, (incomingCounts.get(edge.target) ?? 0) + 1);
+  });
+
+  const roots = nodes
+    .filter((node) => (incomingCounts.get(node.id) ?? 0) === 0)
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  const depthById = new Map<string, number>();
+  const queue = roots.map((root) => ({ id: root.id, depth: 0 }));
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (depthById.has(current.id)) continue;
+    depthById.set(current.id, current.depth);
+
+    const childIds = sortedChildIdsByParent.get(current.id) ?? [];
+    childIds.forEach((childId) => {
+      queue.push({ id: childId, depth: current.depth + 1 });
+    });
+  }
+
+  nodes.forEach((node) => {
+    if (!depthById.has(node.id)) {
+      depthById.set(node.id, 0);
+    }
+  });
+
+  const getSubtreeNodeIds = (rootId: string): string[] => {
+    const ids: string[] = [];
+    const stack = [rootId];
+    while (stack.length > 0) {
+      const currentId = stack.pop()!;
+      ids.push(currentId);
+      const childIds = sortedChildIdsByParent.get(currentId) ?? [];
+      for (let index = childIds.length - 1; index >= 0; index -= 1) {
+        stack.push(childIds[index]);
+      }
+    }
+    return ids;
+  };
+
+  const computeContours = (rootId: string): { left: Map<number, number>; right: Map<number, number> } => {
+    const left = new Map<number, number>();
+    const right = new Map<number, number>();
+
+    getSubtreeNodeIds(rootId).forEach((nodeId) => {
+      const node = nodeById.get(nodeId);
+      if (!node) return;
+
+      const depth = depthById.get(nodeId) ?? 0;
+      const leftX = node.position.x;
+      const rightX = node.position.x + NODE_WIDTH;
+
+      left.set(depth, Math.min(left.get(depth) ?? Number.POSITIVE_INFINITY, leftX));
+      right.set(depth, Math.max(right.get(depth) ?? Number.NEGATIVE_INFINITY, rightX));
+    });
+
+    return { left, right };
+  };
+
+  const shiftSubtree = (rootId: string, deltaX: number): void => {
+    if (deltaX === 0) return;
+    getSubtreeNodeIds(rootId).forEach((nodeId) => {
+      const node = nodeById.get(nodeId);
+      if (!node) return;
+      node.position = {
+        ...node.position,
+        x: node.position.x + deltaX,
+      };
+    });
+  };
+
+  const compactChildren = (parentId: string): void => {
+    const childIds = sortedChildIdsByParent.get(parentId) ?? [];
+
+    if (childIds.length >= 2) {
+      const packedRight = new Map<number, number>();
+
+      childIds.forEach((childId, index) => {
+        let contours = computeContours(childId);
+
+        if (index > 0) {
+          let minDelta = Number.NEGATIVE_INFINITY;
+          let hasConstraint = false;
+
+          contours.left.forEach((leftX, depth) => {
+            const rightX = packedRight.get(depth);
+            if (rightX === undefined) return;
+            hasConstraint = true;
+            const requiredDelta = rightX + SUBTREE_COMPACT_GAP_X - leftX;
+            if (requiredDelta > minDelta) {
+              minDelta = requiredDelta;
+            }
+          });
+
+          const shiftLeftDelta = hasConstraint ? Math.min(0, minDelta) : 0;
+          if (shiftLeftDelta !== 0) {
+            shiftSubtree(childId, shiftLeftDelta);
+            contours = computeContours(childId);
+          }
+        }
+
+        contours.right.forEach((rightX, depth) => {
+          packedRight.set(depth, Math.max(packedRight.get(depth) ?? Number.NEGATIVE_INFINITY, rightX));
+        });
+      });
+    }
+
+    childIds.forEach((childId) => {
+      compactChildren(childId);
+    });
+  };
+
+  roots.forEach((root) => compactChildren(root.id));
+}
+
 function enforceSiblingOrder(nodes: Node[], childIdsByParent: Map<string, string[]>): void {
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
 
@@ -261,9 +388,14 @@ function alignSingleChildChains(nodes: Node[], edges: Edge[], childIdsByParent: 
 }
 
 export function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
-  const laidOutNodes = canUseOrderedTreeLayout(nodes, edges)
+  const useOrderedTreeLayout = canUseOrderedTreeLayout(nodes, edges);
+  const laidOutNodes = useOrderedTreeLayout
     ? orderedTreeLayout(nodes, edges)
     : dagreLayout(nodes, edges);
+
+  if (useOrderedTreeLayout) {
+    compactSiblingSubtrees(laidOutNodes, edges);
+  }
 
   const childIdsByParent = buildChildIdsByParent(edges);
   enforceSiblingOrder(laidOutNodes, childIdsByParent);

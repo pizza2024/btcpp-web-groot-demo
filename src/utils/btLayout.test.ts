@@ -128,4 +128,38 @@ describe('autoLayout', () => {
 
     expect(leftMaxX).toBeLessThan(rightMinX);
   });
+
+  it('compacts large top-level gaps between a leaf and a wide sibling subtree', () => {
+    const nodes: Node[] = [
+      { id: 'root', type: 'btNode', position: { x: 0, y: 0 }, data: {} },
+      { id: 'leaf', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 0 } },
+      { id: 'decorator', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 1 } },
+      { id: 'seq', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 0 } },
+      { id: 'a', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 0 } },
+      { id: 'b', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 1 } },
+      { id: 'c', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 2 } },
+      { id: 'd', type: 'btNode', position: { x: 0, y: 0 }, data: { childIndex: 3 } },
+    ];
+
+    const edges: Edge[] = [
+      { id: 'e1', source: 'root', target: 'leaf' },
+      { id: 'e2', source: 'root', target: 'decorator' },
+      { id: 'e3', source: 'decorator', target: 'seq' },
+      { id: 'e4', source: 'seq', target: 'a' },
+      { id: 'e5', source: 'seq', target: 'b' },
+      { id: 'e6', source: 'seq', target: 'c' },
+      { id: 'e7', source: 'seq', target: 'd' },
+    ];
+
+    const laidOut = autoLayout(nodes, edges);
+    const leaf = laidOut.find((n) => n.id === 'leaf');
+    const decorator = laidOut.find((n) => n.id === 'decorator');
+
+    expect(leaf).toBeDefined();
+    expect(decorator).toBeDefined();
+
+    const horizontalGap = (decorator?.position.x ?? 0) - (leaf?.position.x ?? 0);
+    expect(horizontalGap).toBeLessThan(260);
+    expect(horizontalGap).toBeGreaterThan(150);
+  });
 });

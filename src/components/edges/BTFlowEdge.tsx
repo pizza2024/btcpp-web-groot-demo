@@ -1,5 +1,5 @@
 import React from 'react';
-import { BaseEdge, getSmoothStepPath } from '@xyflow/react';
+import { BaseEdge, getBezierPath } from '@xyflow/react';
 import type { EdgeProps } from '@xyflow/react';
 
 export interface BTFlowEdgeData {
@@ -37,7 +37,7 @@ const BTFlowEdge: React.FC<EdgeProps> = ({
   const strokeColor = isInvalid ? '#e04040' : hasWarning ? '#f0a020' : '#6888aa';
   const strokeWidth = isInvalid || hasWarning ? 2.5 : 2;
 
-  const [edgePath] = getSmoothStepPath({
+  const [edgePath] = getBezierPath({
     sourceX: sourceX ?? 0,
     sourceY: sourceY ?? 0,
     sourcePosition: sourcePosition ?? 0,
