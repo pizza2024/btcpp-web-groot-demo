@@ -15,8 +15,8 @@ import '@xyflow/react/dist/style.css';
 import html2canvas from 'html2canvas';
 
 import { useBTStore } from '../store/btStore';
-import { treeToFlow, flowToTree, isSameTreeStructure, getDescendantIds } from '../utils/btFlow';
-
+import type { BTNodeDefinition, BTProject, BTNodeCategory, BTPort, BTTreeNode } from '../types/bt';
+import { treeToFlow, flowToTree, isSameTreeStructure, getDescendantIds, getAttachedNodeIds, getDetachedNodeIds } from '../utils/btFlow';
 // Collect all child node IDs (edges) from a tree recursively
 function collectEdgeIds(node: BTTreeNode): string[] {
   const ids: string[] = node.children.map((c) => c.id);
@@ -25,12 +25,11 @@ function collectEdgeIds(node: BTTreeNode): string[] {
   });
   return ids;
 }
-import type { BTNodeDefinition, BTProject, BTNodeCategory, BTPort, BTTreeNode } from '../types/bt';
 import { autoLayout } from '../utils/btLayout';
 import { validatePortConnection } from '../utils/btXml';
 import BTFlowNode from './nodes/BTFlowNode';
 import BTFlowEdge from './edges/BTFlowEdge';
-import { BUILTIN_NODES, CATEGORY_COLORS, EDITOR_ROOT_TYPE } from '../types/bt-constants';
+import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
 import { useContextMenu, type MenuConfig, type MenuItem } from './ContextMenu';
 import NodePicker from './NodePicker';
 import NodeEditModal from './NodeEditModal';
@@ -74,24 +73,6 @@ function inferPortDirection(
   return undefined;
 }
 
-/**
- * Check if a target node is a leaf node (Action/Condition) that can't accept children.
- * Returns a warning message if invalid.
- */
-function checkLeafTargetConnection(
-  targetNodeId: string,
-  nodes: Node[]
-): string | undefined {
-  const target = nodes.find((n) => n.id === targetNodeId);
-  if (!target) return undefined;
-  const data = target.data as { category?: string };
-  const category = data?.category;
-  if (category === 'Action' || category === 'Condition') {
-    return 'Leaf nodes (Action/Condition) cannot have children';
-  }
-  return undefined;
-}
-
 function buildFlowNodes(
   treeId: string,
   project: BTProject,
@@ -112,28 +93,6 @@ function buildFlowNodes(
     data: { ...e.data, targetStatus: debugStatuses.get(e.target) ?? 'IDLE' },
   }));
   return { nodes, edges };
-}
-
-function collectAttachedNodeIds(rootId: string, edges: Edge[]): Set<string> {
-  const adjacency = new Map<string, string[]>();
-  edges.forEach((edge) => {
-    const arr = adjacency.get(edge.source) ?? [];
-    arr.push(edge.target);
-    adjacency.set(edge.source, arr);
-  });
-
-  const visited = new Set<string>();
-  const queue: string[] = [rootId];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (visited.has(current)) continue;
-    visited.add(current);
-    const children = adjacency.get(current) ?? [];
-    children.forEach((child) => {
-      if (!visited.has(child)) queue.push(child);
-    });
-  }
-  return visited;
 }
 
 const BTCanvas: React.FC = () => {
@@ -202,33 +161,9 @@ const BTCanvas: React.FC = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
 
   const deleteEdge = useCallback((edgeId: string) => {
-    setEdges((prev) => {
-      const edge = prev.find((e) => e.id === edgeId);
-      if (!edge) return prev;
-
-      const targetId = edge.target;
-      const remainingEdges = prev.filter((e) => e.id !== edgeId);
-
-      // Check if target has any other incoming edges
-      const hasOtherIncoming = remainingEdges.some((e) => e.target === targetId);
-
-      if (!hasOtherIncoming) {
-        // Target is now orphan - check if it's a leaf node
-        // If so, remove it along with the edge to avoid saveToStore excluding it
-        setNodes((nodes) => {
-          const targetNode = nodes.find((n) => n.id === targetId);
-          const category = targetNode?.data?.category;
-          if (category === 'Action' || category === 'Condition') {
-            return nodes.filter((n) => n.id !== targetId);
-          }
-          return nodes;
-        });
-      }
-
-      return remainingEdges;
-    });
+    setEdges((prev) => prev.filter((edge) => edge.id !== edgeId));
     setSelectedEdgeId((prev) => (prev === edgeId ? null : prev));
-  }, [setEdges, setNodes]);
+  }, [setEdges]);
 
   // ── Ctrl+Drag Subtree ──────────────────────────────────────────────────────
   // Track Ctrl key state separately via keydown/keyup so we can detect it reliably
@@ -588,12 +523,6 @@ const BTCanvas: React.FC = () => {
       let typeWarning: string | undefined;
       const { nodeModels } = project;
 
-      // Check if target is a leaf node (can't accept children)
-      if (targetNode) {
-        const leafError = checkLeafTargetConnection(params.target!, nodes);
-        if (leafError) return; // Block connection to leaf nodes
-      }
-
       // If no leaf error, check port type compatibility
       if (!typeWarning && params.sourceHandle && params.targetHandle) {
         const sourceData = sourceNode.data as { nodeType: string };
@@ -793,17 +722,8 @@ const BTCanvas: React.FC = () => {
 
         // Keep only nodes reachable from ROOT when persisting tree structure.
         // Non-reachable nodes are tracked as detached and kept on canvas.
-        const rootNode = freshNodes.find((n) => {
-          const data = n.data as { nodeType?: string; isRoot?: boolean };
-          return data.isRoot === true || data.nodeType === EDITOR_ROOT_TYPE;
-        });
-        const attachedIds = rootNode
-          ? collectAttachedNodeIds(rootNode.id, freshEdges)
-          : new Set(freshNodes.map((n) => n.id));
-
-        const nextDetachedIds = new Set(
-          freshNodes.filter((n) => !attachedIds.has(n.id)).map((n) => n.id)
-        );
+        const attachedIds = getAttachedNodeIds(freshNodes, freshEdges);
+        const nextDetachedIds = getDetachedNodeIds(freshNodes, freshEdges);
         setDetachedNodeIds(nextDetachedIds);
 
         const attachedNodes = freshNodes.filter((n) => attachedIds.has(n.id));

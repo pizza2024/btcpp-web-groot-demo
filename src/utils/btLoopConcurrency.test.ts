@@ -42,20 +42,6 @@ function isValidConnection(sourceNode: Node, existingEdges: Edge[]): boolean {
   return true;
 }
 
-function checkLeafTargetConnection(
-  targetNodeId: string,
-  nodes: Node[]
-): string | undefined {
-  const target = nodes.find((n) => n.id === targetNodeId);
-  if (!target) return undefined;
-  const data = target.data as { category?: string };
-  const category = data?.category;
-  if (category === 'Action' || category === 'Condition') {
-    return 'Leaf nodes (Action/Condition) cannot have children';
-  }
-  return undefined;
-}
-
 function canConnect(
   sourceId: string,
   sourceCategory: string,
@@ -71,10 +57,6 @@ function canConnect(
   };
   if (!isValidConnection(sourceNode, existingEdges)) {
     return { allowed: false, reason: 'isValidConnection blocked' };
-  }
-  const leafErr = checkLeafTargetConnection(targetId, nodes);
-  if (leafErr) {
-    return { allowed: false, reason: 'checkLeafTargetConnection blocked (target is leaf)' };
   }
   if (wouldCreateCycle(sourceId, targetId, existingEdges)) {
     return { allowed: false, reason: 'cycle detected' };

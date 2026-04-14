@@ -45,7 +45,7 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
   );
 
   // Memoize port entries grouping
-  const { inputPorts, outputPorts, inoutPorts, hasPre, hasPost, portEntries } = useMemo(() => {
+  const { inputPorts, outputPorts, inoutPorts, hasPre, hasPost, portEntries, preEntries, postEntries } = useMemo(() => {
     // Group port entries by direction
     const definedPorts = nodeDef?.ports ?? [];
     const portEntries: Array<[string, string]> = [];
@@ -91,10 +91,12 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
       }
     });
 
-    const hasPre = !!(preconditions && Object.values(preconditions).some(v => v));
-    const hasPost = !!(postconditions && Object.values(postconditions).some(v => v));
+    const preEntries = Object.entries(preconditions ?? {}).filter(([, v]) => !!v?.trim());
+    const postEntries = Object.entries(postconditions ?? {}).filter(([, v]) => !!v?.trim());
+    const hasPre = preEntries.length > 0;
+    const hasPost = postEntries.length > 0;
 
-    return { inputPorts, outputPorts, inoutPorts, hasPre, hasPost, portEntries };
+    return { inputPorts, outputPorts, inoutPorts, hasPre, hasPost, portEntries, preEntries, postEntries };
   }, [nodeDef, ports, preconditions, postconditions]);
 
   // Memoize handle list
@@ -525,6 +527,73 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
                   }}>
                     {v || '(empty)'}
                   </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pre/Post condition details */}
+      {(hasPre || hasPost) && (
+        <div
+          style={{
+            marginTop: 6,
+            marginBottom: 2,
+            paddingTop: 4,
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            fontSize: 10,
+            textAlign: 'left',
+          }}
+        >
+          {hasPre && (
+            <div
+              style={{
+                background: 'rgba(70, 170, 255, 0.22)',
+                border: '1px solid rgba(90, 190, 255, 0.35)',
+                borderRadius: 4,
+                padding: '4px 6px',
+                marginBottom: hasPost ? 4 : 0,
+              }}
+            >
+              {preEntries.map(([k, v]) => (
+                <div
+                  key={k}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    marginBottom: 2,
+                  }}
+                >
+                  <span style={{ opacity: 0.9 }}>{k}:</span>
+                  <span style={{ color: '#e8f6ff', fontWeight: 600 }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {hasPost && (
+            <div
+              style={{
+                background: 'rgba(70, 170, 255, 0.22)',
+                border: '1px solid rgba(90, 190, 255, 0.35)',
+                borderRadius: 4,
+                padding: '4px 6px',
+              }}
+            >
+              {postEntries.map(([k, v]) => (
+                <div
+                  key={k}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    marginBottom: 2,
+                  }}
+                >
+                  <span style={{ opacity: 0.9 }}>{k}:</span>
+                  <span style={{ color: '#e8f6ff', fontWeight: 600 }}>{v}</span>
                 </div>
               ))}
             </div>

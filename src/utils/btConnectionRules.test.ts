@@ -2,13 +2,10 @@
  * BTCanvas 连接规则单元测试
  * 对应 test-design-model-connection-rules.md
  *
- * 测试 isValidConnection / checkLeafTargetConnection / cycleDetection 逻辑
+ * 测试 isValidConnection / cycleDetection 逻辑
  *
  * ⚠️  与测试设计文档的差异说明：
- * - 实现额外包含 checkLeafTargetConnection：禁止任何连接 TO Action/Condition 节点
- * - 这超出了 isValidConnection 的范围（只检查 SOURCE 节点）
- * - 因此测试设计中的 ROOT→Action、Decorator→Action 等用例在实现中被阻止
- * - validatePortConnection 也禁止 target.direction='output'（包括 inout→output）
+ * - validatePortConnection 仍然禁止 target.direction='output'（包括 inout→output）
  */
 
 import { describe, it, expect } from 'vitest';
@@ -40,22 +37,6 @@ function isValidConnection(sourceNode: Node, existingEdges: Edge[]): boolean {
   return true;
 }
 
-// ─── checkLeafTargetConnection 逻辑（从 BTCanvas.tsx 提取）────────────────────
-
-function checkLeafTargetConnection(
-  targetNodeId: string,
-  nodes: Node[]
-): string | undefined {
-  const target = nodes.find((n) => n.id === targetNodeId);
-  if (!target) return undefined;
-  const data = target.data as { category?: string };
-  const category = data?.category;
-  if (category === 'Action' || category === 'Condition') {
-    return 'Leaf nodes (Action/Condition) cannot have children';
-  }
-  return undefined;
-}
-
 // ─── cycleDetection 逻辑（从 BTCanvas.tsx 提取）────────────────────────────────
 
 function wouldCreateCycle(
@@ -83,14 +64,10 @@ function canConnect(
   sourceNode: Node,
   targetNodeId: string,
   existingEdges: Edge[],
-  nodes: Node[]
+  _nodes?: Node[]
 ): { allowed: boolean; reason?: string } {
   if (!isValidConnection(sourceNode, existingEdges)) {
     return { allowed: false, reason: 'isValidConnection blocked (source rule)' };
-  }
-  const leafErr = checkLeafTargetConnection(targetNodeId, nodes);
-  if (leafErr) {
-    return { allowed: false, reason: 'checkLeafTargetConnection blocked (target is leaf)' };
   }
   if (wouldCreateCycle(sourceNode.id, targetNodeId, existingEdges)) {
     return { allowed: false, reason: 'cycle detected' };
@@ -119,22 +96,18 @@ describe('ROOT 节点连线规则', () => {
     expect(r.reason).toContain('isValidConnection');
   });
 
-  // ⚠️ ROOT-003/004：设计文档期望允许，但 checkLeafTargetConnection 实际阻止
-  // 实现比 isValidConnection 多了一个检查：不允许任何连接指向 Action/Condition
-  it('ROOT-003 [设计差异]: ROOT → Action → 实现阻止（checkLeafTargetConnection），设计期望允许', () => {
+  it('ROOT-003: ROOT → Action，允许', () => {
     const root = makeNode('root', 'ROOT');
     const action = makeNode('action', 'Action');
     const r = canConnect(root, 'action', [], [root, action]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 
-  it('ROOT-004 [设计差异]: ROOT → Condition → 实现阻止（checkLeafTargetConnection），设计期望允许', () => {
+  it('ROOT-004: ROOT → Condition，允许', () => {
     const root = makeNode('root', 'ROOT');
     const cond = makeNode('cond', 'Condition');
     const r = canConnect(root, 'cond', [], [root, cond]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 });
 
@@ -159,21 +132,18 @@ describe('Decorator 节点连线规则', () => {
     expect(r.reason).toContain('isValidConnection');
   });
 
-  // ⚠️ 设计差异：checkLeafTargetConnection 阻止 Decorator → Action/Condition
-  it('DEC-003 [设计差异]: Decorator → Action → 实现阻止，设计期望允许', () => {
+  it('DEC-003: Decorator → Action，允许', () => {
     const inv = makeNode('inv', 'Decorator');
     const action = makeNode('action', 'Action');
     const r = canConnect(inv, 'action', [], [inv, action]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 
-  it('DEC-004 [设计差异]: Decorator → Condition → 实现阻止，设计期望允许', () => {
+  it('DEC-004: Decorator → Condition，允许', () => {
     const inv = makeNode('inv', 'Decorator');
     const cond = makeNode('cond', 'Condition');
     const r = canConnect(inv, 'cond', [], [inv, cond]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 });
 
@@ -182,30 +152,27 @@ describe('Decorator 节点连线规则', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('Control 节点连线规则', () => {
-  it('CTRL-001 [设计差异]: Sequence → Action → 实现阻止（Action是叶子目标），设计期望允许', () => {
+  it('CTRL-001: Sequence → Action，允许', () => {
     const seq = makeNode('seq', 'Control');
     const a = makeNode('a', 'Action');
     const b = makeNode('b', 'Action');
     const edges: Edge[] = [{ id: 'e1', source: 'seq', target: 'a', sourceHandle: 'out0', targetHandle: 'in0' }];
     const r = canConnect(seq, 'b', edges, [seq, a, b]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 
-  it('CTRL-002 [设计差异]: Fallback → Condition → 实现阻止，设计期望允许', () => {
+  it('CTRL-002: Fallback → Condition，允许', () => {
     const fb = makeNode('fb', 'Control');
     const cond = makeNode('cond', 'Condition');
     const r = canConnect(fb, 'cond', [], [fb, cond]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 
-  it('CTRL-003 [设计差异]: Parallel → Action → 实现阻止，设计期望允许', () => {
+  it('CTRL-003: Parallel → Action，允许', () => {
     const par = makeNode('par', 'Control');
     const a = makeNode('a', 'Action');
     const r = canConnect(par, 'a', [], [par, a]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 
   // Control → Control（合法）
@@ -225,20 +192,18 @@ describe('Control 节点连线规则', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('Leaf 节点（Action/Condition）连线规则', () => {
-  it('LEAF-001: Control → Action（目标为叶子），拒绝', () => {
+  it('LEAF-001: Control → Action（目标为叶子），允许', () => {
     const seq = makeNode('seq', 'Control');
     const action = makeNode('action', 'Action');
     const r = canConnect(seq, 'action', [], [seq, action]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 
-  it('LEAF-002: Control → Condition（目标为叶子），拒绝', () => {
+  it('LEAF-002: Control → Condition（目标为叶子），允许', () => {
     const fb = makeNode('fb', 'Control');
     const cond = makeNode('cond', 'Condition');
     const r = canConnect(fb, 'cond', [], [fb, cond]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 
   it('LEAF-003: Action → Action（源为叶子），拒绝', () => {
@@ -249,14 +214,12 @@ describe('Leaf 节点（Action/Condition）连线规则', () => {
     expect(r.reason).toContain('isValidConnection');
   });
 
-  it('LEAF-005 [设计差异]: ROOT → Action → Sequence → Action不能有子节点，被isValidConnection阻止', () => {
+  it('LEAF-005: ROOT → Action 合法，但 Action → Sequence 被 isValidConnection 阻止', () => {
     const root = makeNode('root', 'ROOT');
     const action = makeNode('action', 'Action');
     const seq = makeNode('seq', 'Control');
-    // ROOT → Action 允许（但被 checkLeafTargetConnection 阻止，这是实现差异）
     const r1 = canConnect(root, 'action', [], [root, action, seq]);
-    expect(r1.allowed).toBe(false); // 实现阻止，非 isValidConnection
-    expect(r1.reason).toContain('checkLeafTargetConnection');
+    expect(r1.allowed).toBe(true);
     // Action → Sequence 被 isValidConnection 阻止（叶子源）
     const edges = [{ id: 'e1', source: 'root', target: 'action', sourceHandle: 'out0', targetHandle: 'in0' }];
     const r2 = canConnect(action, 'seq', edges, [root, action, seq]);
@@ -270,13 +233,12 @@ describe('Leaf 节点（Action/Condition）连线规则', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('SubTree 节点连线规则', () => {
-  it('SUB-001 [设计差异]: SubTree → Action → 实现阻止，设计期望允许', () => {
+  it('SUB-001: SubTree → Action，允许', () => {
     const sub = makeNode('sub', 'SubTree');
     const a = makeNode('a', 'Action');
     const edges: Edge[] = [{ id: 'e1', source: 'sub', target: 'a', sourceHandle: 'out0', targetHandle: 'in0' }];
     const r = canConnect(sub, 'a', edges, [sub, a]);
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 
   it('SUB-X: SubTree → Control，允许', () => {
@@ -334,9 +296,8 @@ describe('复杂组合场景', () => {
     const root = makeNode('root', 'ROOT');
     const action = makeNode('action', 'Action');
     const seq = makeNode('seq', 'Control');
-    // ROOT → Action 被 checkLeafTargetConnection 阻止（实现额外检查）
     const r1 = canConnect(root, 'action', [], [root, action, seq]);
-    expect(r1.allowed).toBe(false);
+    expect(r1.allowed).toBe(true);
     // Action → Sequence 被 isValidConnection 阻止（叶子源不能有出边）
     const edges = [{ id: 'e1', source: 'root', target: 'action', sourceHandle: 'out0', targetHandle: 'in0' }];
     const r2 = canConnect(action, 'seq', edges, [root, action, seq]);
@@ -368,11 +329,9 @@ describe('复杂组合场景', () => {
     // retry → seq2
     expect(canConnect(retry, 'seq2', e4, [root, seq, fb, inv, retry, seq2, action]).allowed).toBe(true);
     const e5: Edge[] = [...e4, { id: 'e5', source: 'retry', target: 'seq2', sourceHandle: 'out0', targetHandle: 'in0' }];
-    // seq2 → action（注意：action是叶子目标，会被 checkLeafTargetConnection 阻止）
+    // seq2 → action
     const r = canConnect(seq2, 'action', e5, [root, seq, fb, inv, retry, seq2, action]);
-    // 按设计这应该是合法的，但实现会阻止
-    expect(r.allowed).toBe(false);
-    expect(r.reason).toContain('checkLeafTargetConnection');
+    expect(r.allowed).toBe(true);
   });
 });
 

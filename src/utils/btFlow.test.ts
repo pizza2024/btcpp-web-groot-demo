@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BTTree } from '../types/bt';
 import type { Edge, Node } from '@xyflow/react';
-import { flowToTree, isSameTreeStructure, treeToFlow } from './btFlow';
+import { flowToTree, getAttachedNodeIds, getDetachedNodeIds, isSameTreeStructure, treeToFlow } from './btFlow';
 
 describe('treeToFlow', () => {
   it('converts tree nodes and edges with expected metadata', () => {
@@ -152,6 +152,32 @@ describe('flowToTree', () => {
     expect(tree.root.children).toHaveLength(1);
     expect(tree.root.children[0].id).toBe('orphan-child');
     // unreachable-root is silently excluded (not connected to tree root)
+  });
+});
+
+describe('detached node tracking', () => {
+  it('keeps a node as detached after removing its only ROOT connection', () => {
+    const nodes: Node[] = [
+      {
+        id: 'root',
+        type: 'btNode',
+        position: { x: 0, y: 0 },
+        data: { nodeType: 'ROOT', label: 'ROOT', ports: {}, isRoot: true },
+      },
+      {
+        id: 'action',
+        type: 'btNode',
+        position: { x: 120, y: 0 },
+        data: { nodeType: 'Action', label: 'Action', ports: {}, category: 'Action' },
+      },
+    ];
+
+    const edges: Edge[] = [{ id: 'e1', source: 'root', target: 'action' }];
+    const edgesAfterDelete: Edge[] = [];
+
+    expect(getAttachedNodeIds(nodes, edges)).toEqual(new Set(['root', 'action']));
+    expect(getAttachedNodeIds(nodes, edgesAfterDelete)).toEqual(new Set(['root']));
+    expect(getDetachedNodeIds(nodes, edgesAfterDelete)).toEqual(new Set(['action']));
   });
 });
 

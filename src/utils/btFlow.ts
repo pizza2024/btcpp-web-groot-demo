@@ -150,6 +150,47 @@ export function getDescendantIds(nodeId: string, edges: Edge[]): string[] {
   return result;
 }
 
+export function getAttachedNodeIds(nodes: Node[], edges: Edge[]): Set<string> {
+  const rootNode = nodes.find((node) => {
+    const data = node.data as { nodeType?: string; isRoot?: boolean };
+    return data.isRoot === true || data.nodeType === EDITOR_ROOT_TYPE;
+  });
+
+  if (!rootNode) {
+    return new Set(nodes.map((node) => node.id));
+  }
+
+  const adjacency = new Map<string, string[]>();
+  edges.forEach((edge) => {
+    const targets = adjacency.get(edge.source) ?? [];
+    targets.push(edge.target);
+    adjacency.set(edge.source, targets);
+  });
+
+  const visited = new Set<string>();
+  const queue: string[] = [rootNode.id];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    const children = adjacency.get(current) ?? [];
+    children.forEach((child) => {
+      if (!visited.has(child)) {
+        queue.push(child);
+      }
+    });
+  }
+
+  return visited;
+}
+
+export function getDetachedNodeIds(nodes: Node[], edges: Edge[]): Set<string> {
+  const attachedIds = getAttachedNodeIds(nodes, edges);
+  return new Set(nodes.filter((node) => !attachedIds.has(node.id)).map((node) => node.id));
+}
+
 export function isSameTreeStructure(left: BTTree, right: BTTree): boolean {
   if (left.id !== right.id) return false;
   return isSameTreeNodeStructure(left.root, right.root);
