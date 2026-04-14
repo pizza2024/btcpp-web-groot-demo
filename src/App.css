@@ -804,9 +804,95 @@ input.input-error:focus {
   max-width: 95vw;
 }
 
+.imported-models-modal {
+  width: 720px;
+  max-width: 95vw;
+}
+
 .node-edit-modal {
   width: 480px;
   max-width: 95vw;
+}
+
+.imported-models-summary {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.imported-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.importer-topline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.importer-type-pill {
+  background: #6aff5d;
+  color: #092409;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 4px;
+  border: none;
+}
+
+.importer-grid {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.importer-category-column {
+  min-width: 180px;
+}
+
+.importer-category-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.importer-ports-column {
+  flex: 1;
+}
+
+.importer-ports-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #2a3a5a;
+}
+
+.importer-ports-table th,
+.importer-ports-table td {
+  border: 1px solid #2a3a5a;
+  padding: 8px;
+}
+
+.importer-ports-table th {
+  text-align: left;
+  color: var(--text-secondary);
+  background: rgba(31, 45, 70, 0.8);
+}
+
+.importer-ports-table td select,
+.importer-ports-table td input {
+  width: 100%;
+}
+
+.importer-progress {
+  margin-right: auto;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 /* Edit modal sections */

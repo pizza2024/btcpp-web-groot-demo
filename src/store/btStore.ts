@@ -78,7 +78,7 @@ interface BTStore {
   setGroot2Error: (error: string | null) => void;
 
   // Project actions
-  loadXML: (xml: string) => void;
+  loadXML: (xml: string) => BTProject | null;
   exportXML: () => string;
   setProject: (p: BTProject) => void;
   setLocalCanvas: (nodes: Node[], edges: Edge[]) => void;
@@ -93,6 +93,7 @@ interface BTStore {
   // Node model actions
   addNodeModel: (def: BTNodeDefinition) => void;
   updateNodeModel: (def: BTNodeDefinition) => void;
+  replaceNodeModel: (oldType: string, def: BTNodeDefinition) => void;
   deleteNodeModel: (type: string) => void;
 
   // Node instance actions
@@ -247,8 +248,10 @@ export const useBTStore = create<BTStore>()(
     try {
       const project = parseXML(xml);
       set({ project, activeTreeId: project.mainTreeId, selectedNodeId: null, debugState: defaultDebug, localNodes: [], localEdges: [] });
+      return project;
     } catch (e) {
       alert('Failed to parse XML:\n' + (e as Error).message);
+      return null;
     }
   },
 
@@ -325,6 +328,29 @@ export const useBTStore = create<BTStore>()(
     const { project } = get();
     const models = project.nodeModels.map((m) => (m.type === def.type ? def : m));
     set({ project: { ...project, nodeModels: models } });
+  },
+
+  replaceNodeModel(oldType, def) {
+    const { project, localNodes } = get();
+    const models = [...project.nodeModels.filter((m) => m.type !== oldType), def];
+    const trees = project.trees.map((tree) => ({
+      ...tree,
+      root: replaceNodeTypeRecursive(tree.root, oldType, def.type),
+    }));
+    const nextLocalNodes = localNodes.map((node) => {
+      const data = node.data as { nodeType?: string; label?: string };
+      if (data.nodeType !== oldType) return node;
+      return {
+        ...node,
+        data: {
+          ...data,
+          nodeType: def.type,
+          label: data.label === oldType ? def.type : data.label,
+        },
+      };
+    });
+
+    set({ project: { ...project, nodeModels: models, trees }, localNodes: nextLocalNodes });
   },
 
   deleteNodeModel(type) {
@@ -762,5 +788,25 @@ function updateNodePortRemapRecursive(
   return {
     ...node,
     children: node.children.map((c) => updateNodePortRemapRecursive(c, nodeId, portRemap)),
+  };
+}
+
+function replaceNodeTypeRecursive(
+  node: import('../types/bt').BTTreeNode,
+  oldType: string,
+  newType: string
+): import('../types/bt').BTTreeNode {
+  const nextNode = node.type === oldType
+    ? {
+        ...node,
+        type: newType,
+        ...(node.name === oldType ? { name: newType } : {}),
+      }
+    : node;
+
+  if (nextNode.children.length === 0) return nextNode;
+  return {
+    ...nextNode,
+    children: nextNode.children.map((child) => replaceNodeTypeRecursive(child, oldType, newType)),
   };
 }

@@ -1,12 +1,14 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBTStore } from '../store/btStore';
-import { SAMPLE_XML } from '../utils/btXml';
+import { SAMPLE_XML, analyzeMissingNodeModels, type MissingNodeModelCandidate } from '../utils/btXml';
+import MissingNodeModelsImporterModal from './MissingNodeModelsImporterModal';
 
 const Toolbar: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { loadXML, exportXML, project, activeTreeId, theme, toggleTheme } = useBTStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [missingModelCandidates, setMissingModelCandidates] = useState<MissingNodeModelCandidate[]>([]);
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'en' ? 'zh' : 'en';
@@ -32,7 +34,15 @@ const Toolbar: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const xml = ev.target?.result as string;
-      loadXML(xml);
+      let candidates: MissingNodeModelCandidate[] = [];
+      try {
+        candidates = analyzeMissingNodeModels(xml);
+      } catch {
+        candidates = [];
+      }
+      const importedProject = loadXML(xml);
+      if (!importedProject) return;
+      setMissingModelCandidates(candidates);
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -125,6 +135,13 @@ const Toolbar: React.FC = () => {
       <div style={{ fontSize: 11, color: '#445', textAlign: 'right' }}>
         {t('canvas.dragHint')}
       </div>
+
+      {missingModelCandidates.length > 0 && (
+        <MissingNodeModelsImporterModal
+          candidates={missingModelCandidates}
+          onClose={() => setMissingModelCandidates([])}
+        />
+      )}
     </div>
   );
 };

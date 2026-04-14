@@ -143,6 +143,19 @@ const zh = {
       trees: '树',
     },
   },
+  importedModels: {
+    title: 'Model Importer',
+    missingMessage: '在 <TreeNodesModel> 中找不到节点类型“{{type}}”。',
+    helper: '我们会手动创建这个 model。你可以在保存前调整推断出的类型、类别和端口方向。',
+    typeLabel: 'Type（可按需修改）',
+    portsLabel: '检测到的 Ports（可修改方向）',
+    noPorts: '没有从 XML 属性中检测到 ports。',
+    skip: '跳过',
+    save: '创建模型',
+    saveAndNext: '创建并继续',
+    close: '关闭',
+    progress: '第 {{current}} / {{total}} 个模型',
+  },
   // Validation messages
   validation: {
     requiredPort: '缺少必需端口',

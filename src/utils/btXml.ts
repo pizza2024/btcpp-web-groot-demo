@@ -1,10 +1,19 @@
-import type { BTProject, BTTree, BTTreeNode, BTNodeDefinition } from '../types/bt';
+import type { BTProject, BTTree, BTTreeNode, BTNodeDefinition, BTNodeCategory, BTPort } from '../types/bt';
 import { BUILTIN_NODES, EDITOR_ROOT_TYPE } from '../types/bt-constants';
 
 // ─── XML → Project ─────────────────────────────────────────────────────────
 
 // Known XML element names that are categories (not node types)
 const LEAF_CATEGORY_TAGS = new Set(['Action', 'Condition']);
+const PRE_KEYS = ['_failureIf', '_successIf', '_skipIf', '_while'];
+const POST_KEYS = ['_onSuccess', '_onFailure', '_onHalted', '_post'];
+
+export interface MissingNodeModelCandidate {
+  type: string;
+  category: BTNodeCategory;
+  categoryOptions: BTNodeCategory[];
+  ports: BTPort[];
+}
 
 function parseTreeNode(el: Element, depth = 0): BTTreeNode {
   const xmlTag = el.tagName;
@@ -19,10 +28,6 @@ function parseTreeNode(el: Element, depth = 0): BTTreeNode {
   const preconditions: Record<string, string> = {};
   const postconditions: Record<string, string> = {};
   let portRemap: Record<string, string> | undefined;
-
-  // Pre/post condition attribute names
-  const PRE_KEYS = ['_failureIf', '_successIf', '_skipIf', '_while'];
-  const POST_KEYS = ['_onSuccess', '_onFailure', '_onHalted', '_post'];
 
   Array.from(el.attributes).forEach((attr) => {
     if (attr.name === 'ID' || attr.name === 'name') return;
@@ -67,6 +72,88 @@ function parseTreeNode(el: Element, depth = 0): BTTreeNode {
     ...(Object.keys(postconditions).length > 0 && { postconditions }),
     ...(portRemap && Object.keys(portRemap).length > 0 && { portRemap }),
   };
+}
+
+export function analyzeMissingNodeModels(xmlText: string): MissingNodeModelCandidate[] {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'application/xml');
+
+  const parseError = doc.querySelector('parsererror');
+  if (parseError) {
+    throw new Error('XML parse error: ' + parseError.textContent);
+  }
+
+  const root = doc.documentElement;
+  const declaredTypes = new Set<string>();
+  const modelEl = root.querySelector(':scope > TreeNodesModel')
+    ?? root.querySelector(':scope > TreeConfiguration > TreeNodesModel');
+  if (modelEl) {
+    Array.from(modelEl.children).forEach((catEl) => {
+      declaredTypes.add(catEl.getAttribute('ID') || catEl.tagName);
+    });
+  }
+
+  const builtinTypes = new Set(BUILTIN_NODES.map((node) => node.type));
+  const records = new Map<string, { xmlTags: Set<string>; maxChildren: number; ports: Map<string, BTPort> }>();
+
+  const visit = (el: Element) => {
+    const xmlTag = el.tagName;
+    const idAttr = el.getAttribute('ID');
+    const isLeafCategory = LEAF_CATEGORY_TAGS.has(xmlTag);
+    const type = isLeafCategory && idAttr ? idAttr : xmlTag;
+
+    if (!builtinTypes.has(type) && !declaredTypes.has(type)) {
+      const existing = records.get(type) ?? {
+        xmlTags: new Set<string>(),
+        maxChildren: 0,
+        ports: new Map<string, BTPort>(),
+      };
+      existing.xmlTags.add(xmlTag);
+      existing.maxChildren = Math.max(existing.maxChildren, el.children.length);
+
+      Array.from(el.attributes).forEach((attr) => {
+        if (attr.name === 'ID' || attr.name === 'name' || attr.name === 'port_remap') return;
+        if (PRE_KEYS.includes(attr.name) || POST_KEYS.includes(attr.name)) return;
+        if (!existing.ports.has(attr.name)) {
+          existing.ports.set(attr.name, { name: attr.name, direction: 'input' });
+        }
+      });
+
+      records.set(type, existing);
+    }
+
+    Array.from(el.children).forEach((child) => visit(child as Element));
+  };
+
+  root.querySelectorAll(':scope > BehaviorTree').forEach((treeEl) => {
+    const firstChild = treeEl.firstElementChild;
+    if (firstChild) visit(firstChild);
+  });
+
+  return Array.from(records.entries())
+    .map(([type, record]) => {
+      const categoryOptions = inferCategoryOptions(record.xmlTags, record.maxChildren);
+      return {
+        type,
+        category: inferDefaultCategory(categoryOptions),
+        categoryOptions,
+        ports: Array.from(record.ports.values()),
+      };
+    })
+    .sort((a, b) => a.type.localeCompare(b.type));
+}
+
+function inferCategoryOptions(xmlTags: Set<string>, maxChildren: number): BTNodeCategory[] {
+  if (xmlTags.has('Action')) return ['Action'];
+  if (xmlTags.has('Condition')) return ['Condition'];
+  if (maxChildren > 1) return ['Control'];
+  if (maxChildren === 1) return ['Decorator', 'Control'];
+  return ['Action', 'Condition'];
+}
+
+function inferDefaultCategory(options: BTNodeCategory[]): BTNodeCategory {
+  if (options.includes('Decorator')) return 'Decorator';
+  return options[0] ?? 'Action';
 }
 
 export function parseXML(xmlText: string): BTProject {
@@ -129,10 +216,16 @@ export function parseXML(xmlText: string): BTProject {
     ...BUILTIN_NODES.map((n) => n.type),
     ...nodeModels.map((m) => m.type),
   ]);
+  const missingCandidates = new Map(analyzeMissingNodeModels(xmlText).map((candidate) => [candidate.type, candidate]));
   const missingLeafModels: BTNodeDefinition[] = [];
   discoveredTypes.forEach((type) => {
     if (!existingTypes.has(type)) {
-      missingLeafModels.push({ type, category: 'Action' });
+      const candidate = missingCandidates.get(type);
+      missingLeafModels.push({
+        type,
+        category: candidate?.category ?? 'Action',
+        ...(candidate?.ports.length ? { ports: candidate.ports } : {}),
+      });
     }
   });
 

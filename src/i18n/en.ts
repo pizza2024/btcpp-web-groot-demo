@@ -143,6 +143,19 @@ const en = {
       trees: 'Trees',
     },
   },
+  importedModels: {
+    title: 'Model Importer',
+    missingMessage: 'We can\'t find node type "{{type}}" in the <TreeNodesModel>.',
+    helper: 'We will create the model manually. You can adjust the inferred type, category, and port directions before saving.',
+    typeLabel: 'Type (change as needed)',
+    portsLabel: 'Detected Ports (change directions)',
+    noPorts: 'No ports detected from XML attributes.',
+    skip: 'Skip',
+    save: 'Create Model',
+    saveAndNext: 'Create And Next',
+    close: 'Close',
+    progress: 'Model {{current}} of {{total}}',
+  },
   // Validation messages
   validation: {
     requiredPort: 'Required port missing',

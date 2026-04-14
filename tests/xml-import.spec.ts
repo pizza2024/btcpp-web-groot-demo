@@ -64,6 +64,44 @@ test.describe('XML Import', () => {
     expect(nodeTexts.some((t) => t.includes('Control'))).toBeTruthy();
   });
 
+  test('导入缺失 TreeNodesModel 的自定义类型时打开 importer modal', async ({ page }) => {
+    await page.goto('/');
+
+    const validXml = `<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <TreeNodesModel>
+    <Action ID="MoveBase">
+      <input_port name="target"/>
+    </Action>
+  </TreeNodesModel>
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+      <RetryWithSkip max_retries="3" skip_if_failed="true">
+        <Action ID="MoveBase" target="{goal}"/>
+      </RetryWithSkip>
+    </Sequence>
+  </BehaviorTree>
+</root>`;
+
+    const fileInput = page.locator('input[type="file"][accept=".xml"]');
+    await fileInput.setInputFiles({
+      name: 'custom-models.xml',
+      mimeType: 'text/xml',
+      buffer: Buffer.from(validXml),
+    });
+
+    await expect(page.locator('.imported-models-modal')).toBeVisible();
+    await expect(page.locator('.importer-type-pill')).toContainText('RetryWithSkip');
+    await expect(page.locator('.importer-ports-table input').nth(0)).toHaveValue('max_retries');
+    await expect(page.locator('.importer-ports-table input').nth(1)).toHaveValue('skip_if_failed');
+
+    await page.locator('input[type="radio"]').nth(0).check();
+    await page.getByRole('button', { name: 'Create Model' }).click();
+
+    await expect(page.locator('.imported-models-modal')).not.toBeVisible();
+    await expect(page.locator('.palette-item', { hasText: 'RetryWithSkip' })).toBeVisible();
+  });
+
   test('循环导入导出保持数据一致', async ({ page }) => {
     await page.goto('/');
     await loadSampleTree(page);
