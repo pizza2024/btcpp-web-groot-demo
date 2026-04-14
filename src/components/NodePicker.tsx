@@ -17,6 +17,8 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
   const { project } = useBTStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState(position);
+  const [expandedCategories, setExpandedCategories] = useState<Set<BTNodeCategory>>(new Set(CATEGORIES));
+  const [selectedCategory, setSelectedCategory] = useState<'All' | BTNodeCategory>('All');
 
   // Adjust position to stay within viewport
   useEffect(() => {
@@ -54,15 +56,15 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
   const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Close on click outside
+  // Close on outside pointer interaction (capture phase avoids canvas stopPropagation)
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside, true);
+    return () => document.removeEventListener('pointerdown', handleClickOutside, true);
   }, [onClose]);
 
   // Close on Escape
@@ -78,12 +80,14 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
   const allModels = project.nodeModels;
 
   // Filter by search
-  const filtered = search.trim()
-    ? allModels.filter(m =>
-        m.type.toLowerCase().includes(search.toLowerCase()) ||
-        m.description?.toLowerCase().includes(search.toLowerCase())
-      )
-    : allModels;
+  const normalizedSearch = search.trim().toLowerCase();
+  const filtered = allModels.filter((m) => {
+    const matchesSearch = !normalizedSearch
+      || m.type.toLowerCase().includes(normalizedSearch)
+      || m.description?.toLowerCase().includes(normalizedSearch);
+    const matchesCategory = selectedCategory === 'All' || m.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   // Group by category
   const grouped = CATEGORIES.reduce((acc, cat) => {
@@ -91,6 +95,18 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
     if (items.length > 0) acc[cat] = items;
     return acc;
   }, {} as Record<BTNodeCategory, typeof allModels>);
+
+  const toggleCategory = (category: BTNodeCategory) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  };
 
   const handleSelect = (type: string, category: BTNodeCategory) => {
     onSelect(type, category);
@@ -120,6 +136,25 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
           placeholder={t('palette.searchNodesPlaceholder')}
           className="node-picker-input"
         />
+        <div className="node-picker-filters">
+          <button
+            type="button"
+            className={`node-picker-filter-btn${selectedCategory === 'All' ? ' active' : ''}`}
+            onClick={() => setSelectedCategory('All')}
+          >
+            {t('properties.category')}: {t('palette.allCategories')}
+          </button>
+          {CATEGORIES.map((category) => (
+            <button
+              key={category}
+              type="button"
+              className={`node-picker-filter-btn${selectedCategory === category ? ' active' : ''}`}
+              onClick={() => setSelectedCategory(category)}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Node list */}
@@ -127,10 +162,21 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
         {Object.keys(grouped).length === 0 ? (
           <div className="node-picker-empty">{t('palette.noNodesFound')}</div>
         ) : (
-          Object.entries(grouped).map(([cat, models]) => (
+          Object.entries(grouped).map(([cat, models]) => {
+            const category = cat as BTNodeCategory;
+            const expanded = expandedCategories.has(category);
+            return (
             <div key={cat} className="node-picker-category">
-              <div className="node-picker-category-header">{cat}</div>
-              {models.map(model => {
+              <button
+                type="button"
+                className="node-picker-category-header"
+                onClick={() => toggleCategory(category)}
+                aria-expanded={expanded}
+              >
+                <span>{expanded ? '▼' : '▶'} {cat}</span>
+                <span className="node-picker-category-count">{models.length}</span>
+              </button>
+              {expanded && models.map(model => {
                 const colors = CATEGORY_COLORS[model.category] || CATEGORY_COLORS.Control;
                 return (
                   <div
@@ -147,7 +193,8 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
                 );
               })}
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

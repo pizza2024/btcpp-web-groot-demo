@@ -135,6 +135,7 @@ const en = {
     searchPlaceholder: 'Search models...',
     searchNodesPlaceholder: 'Search nodes...',
     noNodesFound: 'No nodes found',
+    allCategories: 'All',
     categories: {
       actions: 'Actions',
       conditions: 'Conditions',

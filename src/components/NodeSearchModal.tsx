@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Node } from '@xyflow/react';
+import type { BTNodeCategory } from '../types/bt';
 import { CATEGORY_COLORS } from '../types/bt-constants';
+import { useTranslation } from 'react-i18next';
 
 interface NodeSearchModalProps {
   nodes: Node[];
@@ -8,8 +10,12 @@ interface NodeSearchModalProps {
   onClose: () => void;
 }
 
+const CATEGORIES: BTNodeCategory[] = ['Action', 'Condition', 'Control', 'Decorator', 'SubTree'].sort((a, b) => a.localeCompare(b)) as BTNodeCategory[];
+
 const NodeSearchModal: React.FC<NodeSearchModalProps> = ({ nodes, onSelect, onClose }) => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<'All' | BTNodeCategory>('All');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -19,15 +25,22 @@ const NodeSearchModal: React.FC<NodeSearchModalProps> = ({ nodes, onSelect, onCl
     ? nodes.filter((n) => {
         const label = (n.data.label as string || '').toLowerCase();
         const type = (n.data.nodeType as string || '').toLowerCase();
+        const category = (n.data.category as BTNodeCategory | undefined) ?? 'Action';
         const q = query.toLowerCase();
-        return label.includes(q) || type.includes(q);
+        const matchesText = label.includes(q) || type.includes(q);
+        const matchesCategory = selectedCategory === 'All' || category === selectedCategory;
+        return matchesText && matchesCategory;
       })
-    : nodes;
+    : nodes.filter((n) => {
+        if (selectedCategory === 'All') return true;
+        const category = (n.data.category as BTNodeCategory | undefined) ?? 'Action';
+        return category === selectedCategory;
+      });
 
   // Reset selection when results change
   useEffect(() => {
     setSelectedIndex(0);
-  }, [query]);
+  }, [query, selectedCategory]);
 
   // Focus input on mount
   useEffect(() => {
@@ -108,7 +121,7 @@ const NodeSearchModal: React.FC<NodeSearchModalProps> = ({ nodes, onSelect, onCl
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search nodes by name or type..."
+            placeholder={t('palette.searchNodesPlaceholder')}
             style={{
               flex: 1,
               background: 'transparent',
@@ -134,6 +147,55 @@ const NodeSearchModal: React.FC<NodeSearchModalProps> = ({ nodes, onSelect, onCl
           </kbd>
         </div>
 
+        {/* Category filter */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            padding: '8px 14px 10px',
+            borderBottom: '1px solid #2a3a5a',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('All')}
+            style={{
+              border: selectedCategory === 'All' ? '1px solid #5b8def' : '1px solid #3a4a6a',
+              background: selectedCategory === 'All' ? '#23385f' : '#1e2840',
+              color: selectedCategory === 'All' ? '#e0e8ff' : '#8899bb',
+              borderRadius: 4,
+              fontSize: 11,
+              padding: '3px 8px',
+              cursor: 'pointer',
+            }}
+          >
+            {t('properties.category')}: {t('palette.allCategories', { defaultValue: 'All' })}
+          </button>
+          {CATEGORIES.map((category) => {
+            const isActive = selectedCategory === category;
+            const colors = getCategoryColor(category);
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() => setSelectedCategory(category)}
+                style={{
+                  border: isActive ? `1px solid ${colors.border}` : '1px solid #3a4a6a',
+                  background: isActive ? colors.bg : '#1e2840',
+                  color: isActive ? colors.text : '#8899bb',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  padding: '3px 8px',
+                  cursor: 'pointer',
+                }}
+              >
+                {category}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Results list */}
         <div
           ref={listRef}
@@ -152,7 +214,7 @@ const NodeSearchModal: React.FC<NodeSearchModalProps> = ({ nodes, onSelect, onCl
                 fontSize: 13,
               }}
             >
-              No nodes match "{query}"
+              {t('palette.noNodesFound')}
             </div>
           ) : (
             filtered.map((node, index) => {
