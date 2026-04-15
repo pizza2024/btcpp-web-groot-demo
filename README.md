@@ -1,65 +1,94 @@
-# btcpp-web-groot-demo
+# bt-editor
 
-A **Groot2-like Behavior Tree editor** running entirely in the browser — no backend required.
+A browser-based Behavior Tree editor inspired by Groot2, built with Vite, React, and TypeScript.
 
-Built with **Vite + React + TypeScript**, targeting **BehaviorTree.CPP (BT.CPP) XML v4** format.
+The project supports two delivery modes:
+
+- Standalone web editor for direct browser use
+- Embeddable `BTEditor` React component for integration into other applications
+
+It targets BehaviorTree.CPP XML v4 workflows and runs fully on the client side.
 
 ![BT Editor screenshot](https://github.com/user-attachments/assets/04b0ed13-ed28-4e66-acc2-90e21d4d769f)
 
-## Features
+## What Changed Recently
 
-| Feature | Details |
-|---|---|
-| **Node Palette** | Built-in Control (Sequence, Fallback, Parallel, …), Decorator (Inverter, Retry, Repeat, …), SubTree, and custom leaf nodes |
-| **Visual Canvas** | Drag-and-drop nodes from palette; connect parent→child via handles; auto-layout via Dagre; MiniMap |
-| **Multiple BehaviorTrees** | Add, rename, delete, and switch between trees; set the main tree |
-| **Properties Panel** | Shows selected node details; edit port definitions for custom nodes |
-| **BT.CPP XML Import/Export** | Parses and emits valid `BTCPP_format="4"` XML with `<TreeNodesModel>` |
-| **Debug / Log Replay** | Load a whitespace-delimited log file; step forward/back through node statuses; color-coded highlights on canvas |
+The latest commits after `v0.1.0` mainly focused on editor usability and package readiness:
+
+- Renamed the published package to `bt-editor`
+- Kept the standalone app and reusable component library as dual entry modes
+- Improved auto-layout with better sibling ordering and subtree compaction
+- Added beautify layout support for cleaner tree arrangement
+- Enhanced subtree dragging support with modifier-key interactions
+- Upgraded the XML preview panel with formatting and inline editing capabilities
+- Added readonly/view mode support for node model inspection
+
+## Feature Highlights
+
+- GRoot2-style canvas editing with drag-and-drop node placement
+- Built-in BT.CPP node categories plus custom node model support
+- Multi-tree project management with `SubTree` references
+- Auto-layout and beautify layout for faster tree cleanup
+- Properties panel for node instance editing
+- XML import/export compatible with `BTCPP_format="4"`
+- XML preview panel with formatting and editing support
+- Debug/log replay panel with timeline stepping and status highlighting
+- Favorites panel and reusable templates for faster node creation
+- English and Chinese UI support
+- Standalone app mode and embeddable React component mode
 
 ## Quick Start
 
-```bash
-npm install
-npm run dev
-```
+### Prerequisites
 
-Then open <http://localhost:5174/>.
+- Node.js 20+
+- pnpm 10+
 
-## Build Modes
-
-This project now supports both deployment modes:
-
-1. **Standalone web editor** (current behavior)
-2. **Embeddable React component** (`BTEditor`) for other projects
-
-### Standalone build
+### Install
 
 ```bash
-pnpm run build:web
+pnpm install
 ```
 
-### Component library build
+### Start the standalone editor
 
 ```bash
-pnpm run build:lib
+pnpm dev
 ```
 
-### Build both
+Then open the local URL printed by Vite, typically `http://localhost:5173`.
+
+## Build
+
+### Build the standalone web app
 
 ```bash
-pnpm run build
+pnpm build:web
 ```
 
-## Embed In Another React App
+### Build the embeddable library
+
+```bash
+pnpm build:lib
+```
+
+### Build both outputs
+
+```bash
+pnpm build
+```
+
+## Use as a React Component
+
+Install the package in your host application and render `BTEditor` inside a container with an explicit size.
 
 ```tsx
-import { BTEditor } from 'btcpp-web-groot-demo';
+import { BTEditor } from 'bt-editor';
 
 export function Example() {
 	return (
-		<div style={{ width: 500, height: 500 }}>
-			<BTEditor storageKey="bt-editor-a" />
+		<div style={{ width: 960, height: 640 }}>
+			<BTEditor storageKey="bt-editor-demo" />
 		</div>
 	);
 }
@@ -67,40 +96,93 @@ export function Example() {
 
 Notes:
 
-1. `BTEditor` fills its parent container (`width: 100%`, `height: 100%`).
-2. Use a unique `storageKey` per editor instance to isolate persisted state.
-3. The standalone page remains available and unchanged for independent deployment.
+- `BTEditor` fills the parent container, so the parent must define width and height
+- `storageKey` isolates persisted editor state between instances
+- The library build externalizes `react`, `react-dom`, and `react/jsx-runtime`
 
-## Usage
+## Core Workflows
 
-1. **Palette → Canvas**: Drag a node type from the left palette onto the canvas.
-2. **Connect nodes**: Drag from the bottom handle of a parent to the top handle of a child.
-3. **Properties**: Click a node to see its definition and port values.
-4. **Multiple trees**: Use the *Behavior Trees* panel (bottom-left) to add/switch/rename trees. `SubTree` nodes reference another tree by name.
-5. **Import XML**: Click **⬆ Import XML** to load any BT.CPP v3/v4 XML file.
-6. **Export XML**: Click **⬇ Export XML** to download the current project as BT.CPP XML.
-7. **Debug replay**: Click **Sample Log** (or load your own `.log` file) in the *Debug* panel, then use ◀ / ▶ to step through execution and see node statuses highlighted on the canvas.
+### Editing trees
+
+- Drag nodes from the palette onto the canvas
+- Connect parent and child nodes through handles
+- Use the tree manager to create, rename, switch, and delete Behavior Trees
+- Reference another tree through `SubTree` nodes
+
+### Layout
+
+- Use auto-layout to normalize structure after edits
+- Use beautify layout to compact sibling subtrees and improve readability
+- Sibling ordering is preserved more reliably during layout recalculation
+
+### Import and export
+
+- Import BehaviorTree.CPP XML files into the editor
+- Export the current project back to BT.CPP XML
+- Review and edit generated XML in the XML preview panel
+- Format XML directly in the preview panel before export
+
+### Debug replay
+
+- Load a log file and step through execution state changes
+- Inspect node statuses directly on the canvas
+- Use the panel to replay execution flow without a backend service
 
 ## Log Format
 
 One entry per line:
 
-```
+```text
 <timestamp_ms> <nodeUid> <nodeType> <nodeName> <STATUS> [treeId]
 ```
 
 Example:
-```
+
+```text
 0   1  Sequence  Root         RUNNING  MainTree
 10  2  Condition CheckBattery SUCCESS  MainTree
 20  3  Action    MoveToGoal   RUNNING  MainTree
 ```
 
-Statuses: `IDLE` | `RUNNING` | `SUCCESS` | `FAILURE`
+Supported statuses: `IDLE`, `RUNNING`, `SUCCESS`, `FAILURE`
+
+## Scripts
+
+| Script | Description |
+|---|---|
+| `pnpm dev` | Start the Vite development server |
+| `pnpm build:web` | Build the standalone web app |
+| `pnpm build:lib` | Build the component library |
+| `pnpm build` | Build both outputs |
+| `pnpm lint` | Run ESLint |
+| `pnpm test` | Start Vitest in watch mode |
+| `pnpm test:run` | Run Vitest once |
+| `pnpm test:e2e` | Run Playwright end-to-end tests |
+| `pnpm preview` | Preview the production web build |
 
 ## Tech Stack
 
-- [Vite](https://vitejs.dev/) + [React 19](https://react.dev/) + TypeScript
-- [@xyflow/react](https://reactflow.dev/) (React Flow v12) — canvas
-- [Zustand](https://zustand-demo.pmnd.rs/) — state management
-- [@dagrejs/dagre](https://github.com/dagrejs/dagre) — auto-layout
+- React 19
+- TypeScript
+- Vite
+- `@xyflow/react` for graph rendering
+- Zustand for state management
+- `@dagrejs/dagre` for layout calculation
+- i18next for localization
+- Vitest and Playwright for test coverage
+
+## Documentation
+
+Additional design and development notes are available under `docs/`, including:
+
+- `docs/ARCHITECTURE.md`
+- `docs/DEVELOPER_GUIDE.md`
+- `docs/CHANGELOG.md`
+- `docs/NODE_EDITING.md`
+- `docs/GRoot2_NODE_EDITING.md`
+
+## Status
+
+Current package version: `0.1.0`
+
+Recent development has already moved beyond the original `v0.1.0` release tag, so this README reflects the current `main` branch rather than only the last published release.

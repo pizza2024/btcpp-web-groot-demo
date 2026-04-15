@@ -1,7 +1,6 @@
 {
-  "name": "btcpp-web-groot-demo",
-  "private": true,
-  "version": "0.1.0",
+  "name": "bt-editor",
+  "version": "0.1.1",
   "type": "module",
   "main": "./dist/bt-editor.cjs.js",
   "module": "./dist/bt-editor.es.js",
@@ -50,5 +49,8 @@
     "typescript-eslint": "^8.58.0",
     "vite": "^8.0.4",
     "vitest": "^4.1.4"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
