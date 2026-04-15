@@ -1,6 +1,6 @@
 {
   "name": "bt-editor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "./dist/bt-editor.cjs.js",
   "module": "./dist/bt-editor.es.js",
