@@ -16,12 +16,13 @@ interface BTNodeData {
   childrenCount: number;
   isRoot?: boolean;
   isCollapsed?: boolean;
+  cdata?: string;
   [key: string]: unknown;
 }
 
 const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId }) => {
   const d = data as BTNodeData;
-  const { label, category, colors, ports, preconditions, postconditions, description, status, isRoot, isCollapsed } = d;
+  const { label, category, colors, ports, preconditions, postconditions, description, status, isRoot, isCollapsed, cdata } = d;
 
   const statusColor = status ? STATUS_COLORS[status] : undefined;
   const borderColor = statusColor ?? (selected ? '#ffffff' : colors.border);
@@ -393,11 +394,12 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
       )}
 
       {/* Pre/Post condition indicators */}
-      {(hasPre || hasPost || description) && (
+      {(hasPre || hasPost || description || cdata) && (
         <div style={{ marginTop: 3, fontSize: 8, opacity: 0.6 }}>
           {hasPre && <span title="Has pre-conditions">⏱</span>}
           {hasPost && <span title="Has post-conditions">↩</span>}
           {description && <span title={description}>📝</span>}
+          {cdata && <span title={`CDATA: ${cdata.slice(0, 30)}${cdata.length > 30 ? '…' : ''}`}>📦</span>}
         </div>
       )}
 
@@ -433,7 +435,8 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
     prev.colors.bg === next.colors.bg &&
     prev.colors.border === next.colors.border &&
     prev.isRoot === next.isRoot &&
-    prev.isCollapsed === next.isCollapsed
+    prev.isCollapsed === next.isCollapsed &&
+    prev.cdata === next.cdata
   );
 });
 

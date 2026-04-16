@@ -17,6 +17,7 @@ export interface BTFlowNodeData {
   description?: string;
   childIndex?: number;
   childrenCount: number;
+  cdata?: string;
   [key: string]: unknown;
 }
 
@@ -55,6 +56,7 @@ export function treeToFlow(
         childIndex,
         childrenCount,
         isRoot: btNode.type === EDITOR_ROOT_TYPE,
+        cdata: btNode.cdata,
       } as BTFlowNodeData,
     });
 
@@ -140,6 +142,7 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
       preconditions?: Record<string, string>;
       postconditions?: Record<string, string>;
       description?: string;
+      cdata?: string;
     };
     const childIds = (children.get(nodeId) ?? []).map((child) => child.targetId);
     return {
@@ -150,6 +153,7 @@ export function flowToTree(treeId: string, nodes: Node[], edges: Edge[]): BTTree
       preconditions: data.preconditions,
       postconditions: data.postconditions,
       description: data.description,
+      cdata: data.cdata,
       children: childIds.map(buildNode),
     };
   }

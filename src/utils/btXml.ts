@@ -58,9 +58,15 @@ function parseTreeNode(el: Element, createNodeId: () => string, depth = 0): BTTr
   }
 
   const children: BTTreeNode[] = [];
-  Array.from(el.children).forEach((child) => {
-    children.push(parseTreeNode(child as Element, createNodeId, depth + 1));
+  const cdataParts: string[] = [];
+  Array.from(el.childNodes).forEach((child) => {
+    if (child.nodeType === Node.CDATA_SECTION_NODE) {
+      cdataParts.push(child.textContent ?? '');
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      children.push(parseTreeNode(child as Element, createNodeId, depth + 1));
+    }
   });
+  const cdata = cdataParts.length > 0 ? cdataParts.join('') : undefined;
 
   return {
     id,
@@ -71,6 +77,7 @@ function parseTreeNode(el: Element, createNodeId: () => string, depth = 0): BTTr
     ...(Object.keys(preconditions).length > 0 && { preconditions }),
     ...(Object.keys(postconditions).length > 0 && { postconditions }),
     ...(portRemap && Object.keys(portRemap).length > 0 && { portRemap }),
+    ...(cdata !== undefined && { cdata }),
   };
 }
 
@@ -325,12 +332,18 @@ function serializeNode(
 
   const attrStr = attrs.length ? ' ' + attrs.join(' ') : '';
 
-  if (node.children.length === 0) {
+  if (node.children.length === 0 && !node.cdata) {
     return `${pad}<${tagName}${attrStr}/>`;
   }
 
   const childLines = node.children.map((c) => serializeNode(c, indent + 1, nodeModels)).join('\n');
-  return `${pad}<${tagName}${attrStr}>\n${childLines}\n${pad}</${tagName}>`;
+  const cdataLine = node.cdata ? `\n${pad}  ${wrapCdata(node.cdata)}` : '';
+  return `${pad}<${tagName}${attrStr}>${cdataLine}\n${childLines}\n${pad}</${tagName}>`;
+}
+
+function wrapCdata(content: string): string {
+  // XML forbids "]]>" inside a single CDATA section, so split safely.
+  return `<![CDATA[${content.replace(/\]\]>/g, ']]]]><![CDATA[>')}]]>`;
 }
 
 function getSerializedPortEntries(

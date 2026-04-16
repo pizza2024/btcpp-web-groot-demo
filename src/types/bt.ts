@@ -34,6 +34,8 @@ export interface BTTreeNode {
   description?: string;
   // SubTree port remapping: "local_port": "external_port"
   portRemap?: Record<string, string>;
+  // CDATA content (special port for raw XML-like content)
+  cdata?: string;
 }
 
 export interface BTTree {

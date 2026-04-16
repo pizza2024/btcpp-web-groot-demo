@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import xmlFormatter from 'xml-formatter';
 import { useBTStore } from '../store/BTStoreProvider';
@@ -32,6 +32,7 @@ const XmlPreviewPanel: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedXml, setEditedXml] = useState('');
+  const [xmlError, setXmlError] = useState<string | null>(null);
   const [width, setWidth] = useState(320);
   const [resizing, setResizing] = useState(false);
   const copyResetRef = useRef<number | null>(null);
@@ -90,19 +91,43 @@ const XmlPreviewPanel: React.FC = () => {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedXml('');
+    setXmlError(null);
   };
 
+  const validateXml = useCallback((xml: string): string | null => {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xml, 'application/xml');
+      const parseError = doc.querySelector('parsererror');
+      if (parseError) {
+        return parseError.textContent?.replace(/\s+/g, ' ').trim() ?? t('xmlPreview.invalidXml');
+      }
+      return null;
+    } catch {
+      return t('xmlPreview.parseError');
+    }
+  }, [t]);
+
+  const handleXmlChange = useCallback((value: string) => {
+    setEditedXml(value);
+    setXmlError(validateXml(value));
+  }, [validateXml]);
+
   const handleSaveEdit = () => {
+    if (xmlError) {
+      return; // Don't save with errors
+    }
     try {
       const newProject = loadXML(editedXml);
       if (!newProject) {
-        window.alert(t('xmlPreview.invalidXml'));
+        setXmlError(t('xmlPreview.invalidXml'));
         return;
       }
       setIsEditing(false);
       setEditedXml('');
+      setXmlError(null);
     } catch (error) {
-      window.alert(`${t('xmlPreview.parseError')}: ${String(error)}`);
+      setXmlError(`${t('xmlPreview.parseError')}: ${String(error)}`);
     }
   };
 
@@ -217,14 +242,22 @@ const XmlPreviewPanel: React.FC = () => {
       <div className="xml-preview-body">
         <div className="xml-preview-meta">{t('xmlPreview.activeTree', { tree: activeTreeId })}</div>
         {isEditing ? (
-          <textarea
-            ref={textareaRef}
-            className="xml-preview-textarea"
-            value={editedXml}
-            onChange={(e) => setEditedXml(e.target.value)}
-            spellCheck="false"
-            wrap="off"
-          />
+          <>
+            <textarea
+              ref={textareaRef}
+              className={`xml-preview-textarea${xmlError ? ' xml-preview-textarea-error' : ''}`}
+              value={editedXml}
+              onChange={(e) => handleXmlChange(e.target.value)}
+              spellCheck="false"
+              wrap="off"
+            />
+            {xmlError && (
+              <div className="xml-error-banner">
+                <span className="xml-error-icon">⚠️</span>
+                <span className="xml-error-text">{xmlError}</span>
+              </div>
+            )}
+          </>
         ) : (
           <pre className="xml-preview-code">{formattedXml || t('xmlPreview.empty')}</pre>
         )}

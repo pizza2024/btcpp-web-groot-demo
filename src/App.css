@@ -1511,3 +1511,57 @@ input.input-error:focus {
   }
 }
 
+/* ─── XML Preview Error Banner ─────────────────────────────────── */
+.xml-preview-textarea-error {
+  border-color: #e04040 !important;
+  background: rgba(224, 64, 64, 0.08) !important;
+}
+
+.xml-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  background: rgba(224, 64, 64, 0.15);
+  border: 1px solid rgba(224, 64, 64, 0.4);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #ff8888;
+  word-break: break-word;
+}
+
+.xml-error-icon {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.xml-error-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+/* ─── CDATA Textarea in Modal ──────────────────────────────────── */
+.cdata-textarea {
+  width: 100%;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 13px;
+  padding: 10px 12px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+.cdata-textarea:focus {
+  border-color: #ffe080;
+}
+
+.cdata-textarea::placeholder {
+  color: #484f58;
+}
+

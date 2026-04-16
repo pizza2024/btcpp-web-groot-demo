@@ -114,6 +114,43 @@ describe('serializeXML', () => {
     expect(reparsed.trees).toHaveLength(parsed.trees.length);
     expect(reparsed.trees[0].root.type).toBe(parsed.trees[0].root.type);
   });
+
+  it('serializes and parses CDATA content on nodes', () => {
+    const project = defaultProject();
+    project.trees[0].root.children.push({
+      id: 'n1',
+      type: 'Script',
+      ports: { code: '' },
+      cdata: 'if (x < 10 && y > 3) { return "ok"; }',
+      children: [],
+    });
+
+    const xml = serializeXML(project);
+    expect(xml).toContain('<![CDATA[if (x < 10 && y > 3) { return "ok"; }]]>');
+
+    const reparsed = parseXML(xml);
+    const scriptNode = reparsed.trees[0].root.children[0];
+    expect(scriptNode.cdata).toBe('if (x < 10 && y > 3) { return "ok"; }');
+  });
+
+  it('splits CDATA safely when content includes ]]> sequence', () => {
+    const project = defaultProject();
+    const payload = 'alpha ]]> beta';
+    project.trees[0].root.children.push({
+      id: 'n1',
+      type: 'Script',
+      ports: { code: '' },
+      cdata: payload,
+      children: [],
+    });
+
+    const xml = serializeXML(project);
+    expect(xml).toContain(']]]]><![CDATA[>');
+
+    const reparsed = parseXML(xml);
+    const scriptNode = reparsed.trees[0].root.children[0];
+    expect(scriptNode.cdata).toBe(payload);
+  });
 });
 
 describe('Blackboard Expression Utilities', () => {

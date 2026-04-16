@@ -105,6 +105,7 @@ export interface BTStore {
     postconditions?: Record<string, string>
   ) => void;
   updateNodePortRemap: (nodeId: string, portRemap?: Record<string, string>) => void;
+  updateNodeCdata: (nodeId: string, cdata: string | undefined) => void;
   toggleNodeCollapse: (nodeId: string) => void;
   isNodeCollapsed: (nodeId: string) => boolean;
 
@@ -515,6 +516,15 @@ export const createBTStore = (storageKey = 'bt-tree-editor') => create<BTStore>(
     set({ project: { ...project, trees } });
   },
 
+  updateNodeCdata(nodeId, cdata) {
+    const { project, activeTreeId } = get();
+    const trees = project.trees.map((tree) => {
+      if (tree.id !== activeTreeId) return tree;
+      return { ...tree, root: updateNodeCdataRecursive(tree.root, nodeId, cdata) };
+    });
+    set({ project: { ...project, trees } });
+  },
+
   loadDebugLog(text) {
     // Support both text format and JSON format
     // Text format (one per line):
@@ -792,6 +802,21 @@ function updateNodePortRemapRecursive(
   return {
     ...node,
     children: node.children.map((c) => updateNodePortRemapRecursive(c, nodeId, portRemap)),
+  };
+}
+
+function updateNodeCdataRecursive(
+  node: import('../types/bt').BTTreeNode,
+  nodeId: string,
+  cdata: string | undefined
+): import('../types/bt').BTTreeNode {
+  if (node.id === nodeId) {
+    return { ...node, cdata };
+  }
+  if (node.children.length === 0) return node;
+  return {
+    ...node,
+    children: node.children.map((c) => updateNodeCdataRecursive(c, nodeId, cdata)),
   };
 }
 

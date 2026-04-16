@@ -35,6 +35,7 @@ import { BUILTIN_NODES, CATEGORY_COLORS } from '../types/bt-constants';
 import { useContextMenu, type MenuConfig, type MenuItem } from './ContextMenu';
 import NodePicker from './NodePicker';
 import NodeEditModal from './NodeEditModal';
+import CdataEditModal from './CdataEditModal';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import NodeSearchModal from './NodeSearchModal';
 
@@ -155,6 +156,8 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
 
   // Node edit modal
   const [editingNodeId, setEditingNodeId] = React.useState<string | null>(null);
+  // CDATA edit modal
+  const [editingCdataNodeId, setEditingCdataNodeId] = React.useState<string | null>(null);
 
   // Keyboard shortcuts help modal
   // Node search modal
@@ -1086,6 +1089,23 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
     }
   }, [editingNodeId, setNodes, updateNodeName, nodes]);
 
+  // Handle CDATA edit modal save
+  const handleCdataSave = useCallback((cdata: string | undefined) => {
+    if (!editingCdataNodeId) return;
+    storeApi.getState().pushHistory();
+    storeApi.getState().updateNodeCdata(editingCdataNodeId, cdata);
+    // Update local node data for immediate UI feedback
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id === editingCdataNodeId) {
+          return { ...n, data: { ...n.data, cdata } };
+        }
+        return n;
+      })
+    );
+    setEditingCdataNodeId(null);
+  }, [editingCdataNodeId, setNodes]);
+
   // Navigate to and select a node from search
   const handleNodeSearchSelect = useCallback(
     (nodeId: string) => {
@@ -1466,6 +1486,17 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
             }
           },
         },
+        { id: 'sep-cdata', label: '', separator: true } as MenuItem,
+        {
+          id: 'set-cdata',
+          label: 'Set CDATA Block',
+          icon: '📦',
+          action: () => {
+            if (menuState.targetId) {
+              setEditingCdataNodeId(menuState.targetId);
+            }
+          },
+        },
       ] : [],
       pane: menuState.targetType === 'pane' ? [
         ...(storeApi.getState().clipboard ? [{
@@ -1684,6 +1715,27 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
             availableTrees={project.trees.map((t) => t.id)}
             onSave={handleEditSave}
             onClose={() => setEditingNodeId(null)}
+          />
+        );
+      })()}
+
+      {/* CDATA Edit Modal */}
+      {editingCdataNodeId && (() => {
+        const node = nodes.find((n) => n.id === editingCdataNodeId);
+        if (!node) return null;
+        const data = node.data as {
+          nodeType: string;
+          label: string;
+          cdata?: string;
+        };
+        return (
+          <CdataEditModal
+            nodeId={node.id}
+            nodeType={data.nodeType}
+            nodeName={data.label !== data.nodeType ? data.label : undefined}
+            initialCdata={data.cdata ?? ''}
+            onSave={handleCdataSave}
+            onClose={() => setEditingCdataNodeId(null)}
           />
         );
       })()}
