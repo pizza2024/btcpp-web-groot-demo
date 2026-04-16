@@ -6,9 +6,10 @@ import MissingNodeModelsImporterModal from './MissingNodeModelsImporterModal';
 
 const Toolbar: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const { loadXML, exportXML, project, activeTreeId, theme, toggleTheme } = useBTStore();
+  const { loadXML, exportXML, project, activeTreeId, theme, toggleTheme, setExportFormat } = useBTStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [missingModelCandidates, setMissingModelCandidates] = useState<MissingNodeModelCandidate[]>([]);
+  const [xmlFormat, setXmlFormat] = useState<3 | 4>(project.exportFormat ?? 4);
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'en' ? 'zh' : 'en';
@@ -86,6 +87,42 @@ const Toolbar: React.FC = () => {
       <button className="toolbar-btn" onClick={handleExport} title={t('toolbar.exportXml')}>
         ⬇ {t('toolbar.exportXml')}
       </button>
+      {/* XML Format selector */}
+      <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginLeft: '8px', paddingRight: '8px' }}>
+        <label style={{ fontSize: '12px', color: '#8899bb', minWidth: '40px' }}>
+          {t('toolbar.xmlFormat')}:
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+          <input
+            type="radio"
+            name="xml-format"
+            value="3"
+            checked={xmlFormat === 3}
+            onChange={(e) => {
+              const fmt = parseInt(e.target.value) as 3 | 4;
+              setXmlFormat(fmt);
+              setExportFormat(fmt);
+            }}
+            style={{ margin: 0 }}
+          />
+          <span style={{ fontSize: '12px' }}>{t('toolbar.xmlFormatV3')}</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+          <input
+            type="radio"
+            name="xml-format"
+            value="4"
+            checked={xmlFormat === 4}
+            onChange={(e) => {
+              const fmt = parseInt(e.target.value) as 3 | 4;
+              setXmlFormat(fmt);
+              setExportFormat(fmt);
+            }}
+            style={{ margin: 0 }}
+          />
+          <span style={{ fontSize: '12px' }}>{t('toolbar.xmlFormatV4')}</span>
+        </label>
+      </div>
       <button className="toolbar-btn" onClick={handleExportPNG} title={t('toolbar.exportPng')}>
         🖼️ {t('toolbar.exportPng')}
       </button>

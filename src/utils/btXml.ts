@@ -8,6 +8,9 @@ const LEAF_CATEGORY_TAGS = new Set(['Action', 'Condition']);
 const PRE_KEYS = ['_failureIf', '_successIf', '_skipIf', '_while'];
 const POST_KEYS = ['_onSuccess', '_onFailure', '_onHalted', '_post'];
 
+// XML format versions supported
+export type XMLFormat = 3 | 4;
+
 export interface MissingNodeModelCandidate {
   type: string;
   category: BTNodeCategory;
@@ -266,7 +269,11 @@ export function parseXML(xmlText: string): BTProject {
     root.getAttribute('main_tree_to_execute') ||
     trees[0].id;
 
-  return { trees, nodeModels: mergedModels, mainTreeId };
+  // Detect XML format version from root element (default to 4 if not specified)
+  const btcppFormat = root.getAttribute('BTCPP_format');
+  const detectedFormat = btcppFormat === '3' ? 3 : 4;
+
+  return { trees, nodeModels: mergedModels, mainTreeId, exportFormat: detectedFormat };
 }
 
 // ─── Project → XML ─────────────────────────────────────────────────────────
@@ -274,11 +281,12 @@ export function parseXML(xmlText: string): BTProject {
 function serializeNode(
   node: BTTreeNode,
   indent: number,
-  nodeModels: BTNodeDefinition[]
+  nodeModels: BTNodeDefinition[],
+  format: XMLFormat = 4
 ): string {
   // ROOT is a visual-only editor node — skip it and serialize its children directly
   if (node.type === EDITOR_ROOT_TYPE) {
-    return node.children.map((c) => serializeNode(c, indent, nodeModels)).join('\n');
+    return node.children.map((c) => serializeNode(c, indent, nodeModels, format)).join('\n');
   }
 
   const pad = '  '.repeat(indent);
@@ -292,11 +300,19 @@ function serializeNode(
 
   let tagName: string;
   if (category === 'Action' || category === 'Condition') {
-    // Groot2 instance XML uses concrete node tags for leaf nodes instead of
-    // generic <Action ID="..."> wrappers.
-    tagName = node.type;
-    if (node.name && node.name !== node.type) {
-      attrs.push(`name="${escapeXml(node.name)}"`);
+    // Format 4: use concrete node type tags (e.g., <MoveToGoal ... />)
+    // Format 3: use generic category tags with ID attribute (e.g., <Action ID="MoveToGoal" ... />)
+    if (format === 3) {
+      tagName = category;
+      attrs.push(`ID="${escapeXml(node.type)}"`);
+      if (node.name && node.name !== node.type) {
+        attrs.push(`name="${escapeXml(node.name)}"`);
+      }
+    } else {
+      tagName = node.type;
+      if (node.name && node.name !== node.type) {
+        attrs.push(`name="${escapeXml(node.name)}"`);
+      }
     }
   } else if (category === 'SubTree') {
     tagName = 'SubTree';
@@ -336,7 +352,7 @@ function serializeNode(
     return `${pad}<${tagName}${attrStr}/>`;
   }
 
-  const childLines = node.children.map((c) => serializeNode(c, indent + 1, nodeModels)).join('\n');
+  const childLines = node.children.map((c) => serializeNode(c, indent + 1, nodeModels, format)).join('\n');
   const cdataLine = node.cdata ? `\n${pad}  ${wrapCdata(node.cdata)}` : '';
   return `${pad}<${tagName}${attrStr}>${cdataLine}\n${childLines}\n${pad}</${tagName}>`;
 }
@@ -372,38 +388,59 @@ function getSerializedPortEntries(
   return orderedEntries;
 }
 
-export function serializeXML(project: BTProject): string {
+export function serializeXML(project: BTProject, format?: XMLFormat): string {
+  // Use format from parameter, fall back to project.exportFormat, default to 4
+  const targetFormat: XMLFormat = format ?? project.exportFormat ?? 4;
+
   const lines: string[] = ['<?xml version="1.0" encoding="UTF-8"?>'];
-  lines.push(`<root BTCPP_format="4" main_tree_to_execute="${escapeXml(project.mainTreeId)}">`);
+  lines.push(`<root BTCPP_format="${targetFormat}" main_tree_to_execute="${escapeXml(project.mainTreeId)}">`);
 
   project.trees.forEach((tree) => {
     lines.push(`  <BehaviorTree ID="${escapeXml(tree.id)}">`);
-    lines.push(serializeNode(tree.root, 2, project.nodeModels));
+    lines.push(serializeNode(tree.root, 2, project.nodeModels, targetFormat));
     lines.push('  </BehaviorTree>');
   });
 
-  // TreeNodesModel — only custom (non-builtin) nodes, wrapped in TreeConfiguration
+  // TreeNodesModel — only custom (non-builtin) nodes
   const builtinTypes = new Set(BUILTIN_NODES.map((n) => n.type));
   const customModels = project.nodeModels.filter((m) => !builtinTypes.has(m.type));
 
   if (customModels.length > 0) {
-    lines.push('  <TreeConfiguration>');
-    lines.push('    <TreeNodesModel>');
-    customModels.forEach((m) => {
-      // Use category directly; 'Action'/'Condition' are valid XML tags
-      const cat = m.category;
-      if (!m.ports || m.ports.length === 0) {
-        lines.push(`      <${cat} ID="${escapeXml(m.type)}"/>`);
-      } else {
-        lines.push(`      <${cat} ID="${escapeXml(m.type)}">`);
-        m.ports.forEach((p) => {
-          lines.push(`        <${p.direction}_port name="${escapeXml(p.name)}">${escapeXml(p.description || '')}</${p.direction}_port>`);
-        });
-        lines.push(`      </${cat}>`);
-      }
-    });
-    lines.push('    </TreeNodesModel>');
-    lines.push('  </TreeConfiguration>');
+    if (targetFormat === 3) {
+      // Format 3: TreeNodesModel directly under root (no TreeConfiguration wrapper)
+      lines.push('  <TreeNodesModel>');
+      customModels.forEach((m) => {
+        const cat = m.category;
+        if (!m.ports || m.ports.length === 0) {
+          lines.push(`    <${cat} ID="${escapeXml(m.type)}"/>`);
+        } else {
+          lines.push(`    <${cat} ID="${escapeXml(m.type)}">`);
+          m.ports.forEach((p) => {
+            lines.push(`      <${p.direction}_port name="${escapeXml(p.name)}">${escapeXml(p.description || '')}</${p.direction}_port>`);
+          });
+          lines.push(`    </${cat}>`);
+        }
+      });
+      lines.push('  </TreeNodesModel>');
+    } else {
+      // Format 4: TreeNodesModel wrapped in TreeConfiguration
+      lines.push('  <TreeConfiguration>');
+      lines.push('    <TreeNodesModel>');
+      customModels.forEach((m) => {
+        const cat = m.category;
+        if (!m.ports || m.ports.length === 0) {
+          lines.push(`      <${cat} ID="${escapeXml(m.type)}"/>`);
+        } else {
+          lines.push(`      <${cat} ID="${escapeXml(m.type)}">`);
+          m.ports.forEach((p) => {
+            lines.push(`        <${p.direction}_port name="${escapeXml(p.name)}">${escapeXml(p.description || '')}</${p.direction}_port>`);
+          });
+          lines.push(`      </${cat}>`);
+        }
+      });
+      lines.push('    </TreeNodesModel>');
+      lines.push('  </TreeConfiguration>');
+    }
   }
 
   lines.push('</root>');
@@ -440,6 +477,43 @@ export function defaultProject(): BTProject {
 
 export const SAMPLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Sequence name="Root">
+      <Condition ID="CheckBattery"/>
+      <Fallback>
+        <Condition ID="IsAtGoal"/>
+        <Action ID="MoveToGoal" goal="{target_pose}"/>
+      </Fallback>
+      <SubTree ID="GraspPipeline"/>
+    </Sequence>
+  </BehaviorTree>
+  <BehaviorTree ID="GraspPipeline">
+    <Sequence>
+      <Action ID="OpenGripper"/>
+      <Action ID="ApproachObject" distance="0.05"/>
+      <RetryUntilSuccessful num_attempts="3">
+        <Action ID="CloseGripper"/>
+      </RetryUntilSuccessful>
+    </Sequence>
+  </BehaviorTree>
+  <TreeNodesModel>
+    <Action ID="MoveToGoal">
+      <input_port name="goal">Target pose</input_port>
+    </Action>
+    <Action ID="OpenGripper"/>
+    <Action ID="ApproachObject">
+      <input_port name="distance">Approach distance (m)</input_port>
+    </Action>
+    <Action ID="CloseGripper"/>
+    <Condition ID="CheckBattery"/>
+    <Condition ID="IsAtGoal"/>
+  </TreeNodesModel>
+</root>`;
+
+// ─── Sample v3 project (for backward compatibility testing) ────────────────────
+
+export const SAMPLE_XML_V3 = `<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="3" main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
     <Sequence name="Root">
       <Condition ID="CheckBattery"/>

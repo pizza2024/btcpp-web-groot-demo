@@ -12,6 +12,9 @@ const en = {
     dark: 'Dark',
     light: 'Light',
     help: 'Help',
+    xmlFormat: 'Format',
+    xmlFormatV3: 'v3',
+    xmlFormatV4: 'v4',
   },
   // Context menu
   contextMenu: {

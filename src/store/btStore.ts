@@ -80,6 +80,7 @@ export interface BTStore {
   // Project actions
   loadXML: (xml: string) => BTProject | null;
   exportXML: () => string;
+  setExportFormat: (format: 3 | 4) => void;
   setProject: (p: BTProject) => void;
   setLocalCanvas: (nodes: Node[], edges: Edge[]) => void;
 
@@ -258,6 +259,11 @@ export const createBTStore = (storageKey = 'bt-tree-editor') => create<BTStore>(
 
   exportXML() {
     return serializeXML(get().project);
+  },
+
+  setExportFormat(format: 3 | 4) {
+    const { project } = get();
+    set({ project: { ...project, exportFormat: format } });
   },
 
   setProject(p) {

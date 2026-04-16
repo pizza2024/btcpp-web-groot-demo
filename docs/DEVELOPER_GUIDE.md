@@ -90,16 +90,21 @@ All types are exported from `bt.ts`. Do not duplicate these definitions elsewher
 
 ```typescript
 // Node category (mutually exclusive with connection constraints)
-type BTNodeCategory = 'Control' | 'Decorator' | 'Action' | 'Condition' | 'SubTree';
+type BTNodeCategory =
+  | "Control"
+  | "Decorator"
+  | "Action"
+  | "Condition"
+  | "SubTree";
 
 // Port direction
-type PortDirection = 'input' | 'output' | 'inout';
+type PortDirection = "input" | "output" | "inout";
 
 // A port on a node model template
 interface BTPort {
   name: string;
   direction: PortDirection;
-  portType?: string;    // int | string | bool | double | NodeStatus | Any
+  portType?: string; // int | string | bool | double | NodeStatus | Any
   description?: string;
   defaultValue?: string;
 }
@@ -116,8 +121,8 @@ interface BTNodeDefinition {
 // A node instance in a tree
 interface BTTreeNode {
   id: string;
-  type: string;                  // node type name
-  name?: string;                // instance alias
+  type: string; // node type name
+  name?: string; // instance alias
   ports: Record<string, string>; // port name → value / {blackboard_key}
   children: BTTreeNode[];
   // GRoot2 pre/post-conditions
@@ -130,7 +135,7 @@ interface BTTreeNode {
 // One behavior tree
 interface BTTree {
   id: string;
-  root: BTTreeNode;   // always present; only one child
+  root: BTTreeNode; // always present; only one child
 }
 
 // The full project
@@ -156,16 +161,16 @@ The Zustand store in `btStore.ts` is the **single source of truth** for all BT d
 
 ### Store Slices
 
-| Slice | Fields |
-|-------|--------|
-| `project` | `BTProject` — trees, nodeModels, mainTreeId |
-| `selectedNodeId` | Currently selected node ID |
-| `selectedTreeId` | Currently active tree |
-| `isDark` | Dark/light theme |
-| `language` | `'en'` \| `'zh'` |
-| `debugLog` / `debugStep` | Debug replay state |
-| `past` / `future` | Undo/redo history stacks |
-| UI flags | `showHelp`, `contextMenu`, etc. |
+| Slice                    | Fields                                      |
+| ------------------------ | ------------------------------------------- |
+| `project`                | `BTProject` — trees, nodeModels, mainTreeId |
+| `selectedNodeId`         | Currently selected node ID                  |
+| `selectedTreeId`         | Currently active tree                       |
+| `isDark`                 | Dark/light theme                            |
+| `language`               | `'en'` \| `'zh'`                            |
+| `debugLog` / `debugStep` | Debug replay state                          |
+| `past` / `future`        | Undo/redo history stacks                    |
+| UI flags                 | `showHelp`, `contextMenu`, etc.             |
 
 ### State Update Pattern
 
@@ -173,7 +178,7 @@ All mutations go through Zustand actions. **Never** mutate `project` directly �
 
 ```typescript
 // ✅ Correct
-btStore.getState().addNode(treeId, parentId, 'Sequence');
+btStore.getState().addNode(treeId, parentId, "Sequence");
 
 // ❌ Wrong
 btStore.getState().project.trees[0].root.children.push(newNode);
@@ -186,11 +191,17 @@ The store maintains `past` and `future` stacks. Every **structural** mutation (a
 ```typescript
 // Undo
 const prev = btStore.getState().past.pop();
-btStore.setState({ project: prev, future: [...btStore.getState().future, btStore.getState().project] });
+btStore.setState({
+  project: prev,
+  future: [...btStore.getState().future, btStore.getState().project],
+});
 
 // Redo
 const next = btStore.getState().future.pop();
-btStore.setState({ project: next, past: [...btStore.getState().past, btStore.getState().project] });
+btStore.setState({
+  project: next,
+  past: [...btStore.getState().past, btStore.getState().project],
+});
 ```
 
 ---
@@ -203,11 +214,11 @@ btStore.setState({ project: next, past: [...btStore.getState().past, btStore.get
 export const BUILTIN_NODES: BTNodeDefinition[] = [
   // ...existing nodes...
   {
-    type: 'MyNewNode',
-    category: 'Control',   // or 'Decorator', 'Action', 'Condition'
-    description: 'Does something',
+    type: "MyNewNode",
+    category: "Control", // or 'Decorator', 'Action', 'Condition'
+    description: "Does something",
     ports: [
-      { name: 'param', direction: 'input', portType: 'int', defaultValue: '3' }
+      { name: "param", direction: "input", portType: "int", defaultValue: "3" },
     ],
     builtin: true,
   },
@@ -220,7 +231,7 @@ If the new node has special child count requirements, update `getChildConstraint
 
 ```typescript
 function getChildConstraint(type: string): ChildConstraint {
-  if (type === 'MyNewNode') return { min: 2, max: 5 };
+  if (type === "MyNewNode") return { min: 2, max: 5 };
   // ...
 }
 ```
@@ -233,18 +244,45 @@ Add translated descriptions if needed.
 
 ## 6. XML Format Reference
 
-The app targets **BT.CPP XML v4** (`BTCPP_format="4"`).
+The app supports **BT.CPP XML v3 and v4** (`BTCPP_format="3"` or `BTCPP_format="4"`). By default, exports use v4 format, but users can switch to v3 via the toolbar format selector.
 
-### Minimal Tree
+### Format Differences
+
+| Aspect                  | v3                               | v4                               |
+| ----------------------- | -------------------------------- | -------------------------------- |
+| Root attribute          | `BTCPP_format="3"`               | `BTCPP_format="4"`               |
+| Leaf nodes (Action)     | `<Action ID="TypeName" .../>`    | `<TypeName ... />`               |
+| Leaf nodes (Condition)  | `<Condition ID="TypeName" .../>` | `<TypeName ... />`               |
+| TreeNodesModel location | Direct child of `<root>`         | Wrapped in `<TreeConfiguration>` |
+
+### Minimal Tree (v4)
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4" main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
     <Sequence name="Root">
+      <MoveBase goal="/target"/>
+    </Sequence>
+  </BehaviorTree>
+  <TreeConfiguration>
+    <TreeNodesModel>
       <Action ID="MoveBase">
-        <input_port name="goal">/target</input_port>
+        <input_port name="goal">string</input_port>
       </Action>
+    </TreeNodesModel>
+  </TreeConfiguration>
+</root>
+```
+
+### Minimal Tree (v3)
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="3" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Sequence name="Root">
+      <Action ID="MoveBase" goal="/target"/>
     </Sequence>
   </BehaviorTree>
   <TreeNodesModel>
@@ -255,17 +293,25 @@ The app targets **BT.CPP XML v4** (`BTCPP_format="4"`).
 </root>
 ```
 
-### Node Tag Rules
+### Node Tag Rules (v4)
 
-| Node Category | XML Tag | Notes |
-|---------------|---------|-------|
-| Control | `<TypeName name="…">` | `name` = instance alias |
-| Decorator | `<TypeName name="…">` | |
-| Action | `<Action ID="TypeName">` | `ID` = type; ports as children |
-| Condition | `<Condition ID="TypeName">` | |
-| SubTree | `<SubTree ID="OtherTreeID">` | `ID` = target tree |
+| Node Category | XML Tag                      | Notes                                |
+| ------------- | ---------------------------- | ------------------------------------ |
+| Control       | `<TypeName name="…">`        | `name` = instance alias              |
+| Decorator     | `<TypeName name="…">`        |                                      |
+| Action        | `<TypeName ... />`           | Concrete type tag; no `ID` attribute |
+| Condition     | `<TypeName ... />`           |                                      |
+| SubTree       | `<SubTree ID="OtherTreeID">` | `ID` = target tree                   |
 
----
+### Node Tag Rules (v3)
+
+| Node Category | XML Tag                          | Notes                                |
+| ------------- | -------------------------------- | ------------------------------------ | --- |
+| Control       | `<TypeName name="…">`            | `name` = instance alias              |
+| Decorator     | `<TypeName name="…">`            |                                      |
+| Action        | `<Action ID="TypeName" .../>`    | Generic `Action` tag; `ID` = type    |
+| Condition     | `<Condition ID="TypeName" .../>` | Generic `Condition` tag; `ID` = type |
+| SubTree       | `<SubTree ID="OtherTreeID">`     | `ID` = target tree                   | --- |
 
 ## 7. Canvas Events
 
@@ -336,12 +382,14 @@ pnpm test -- btXml.test.ts
 ```
 
 Unit tests live alongside source files:
+
 - `src/utils/btXml.test.ts`
 - `src/utils/btFlow.test.ts`
 - `src/utils/btLayout.test.ts`
 - `src/components/PropertiesPanel.test.tsx`
 
 Key test scenarios:
+
 - XML round-trip: import → export → re-import produces identical trees
 - `treeToFlow` / `flowToTree` are inverses
 - Layout produces valid DAG (no cycles, all nodes reachable)
@@ -361,6 +409,7 @@ pnpm test:e2e tests/keyboard.spec.ts
 ```
 
 E2E tests are in `tests/`:
+
 - `keyboard.spec.ts` — keyboard shortcuts (19 tests)
 - `nodePicker.spec.ts` — node picker interaction
 - `importExport.spec.ts` — XML import/export flows
@@ -368,13 +417,17 @@ E2E tests are in `tests/`:
 ### Writing Tests
 
 **Vitest (unit):**
-```typescript
-import { describe, it, expect } from 'vitest';
-import { treeToFlow, flowToTree } from '../utils/btFlow';
 
-describe('treeToFlow', () => {
-  it('converts a simple tree', () => {
-    const tree = { id: 'T1', root: { id: 'n1', type: 'Sequence', ports: {}, children: [] } };
+```typescript
+import { describe, it, expect } from "vitest";
+import { treeToFlow, flowToTree } from "../utils/btFlow";
+
+describe("treeToFlow", () => {
+  it("converts a simple tree", () => {
+    const tree = {
+      id: "T1",
+      root: { id: "n1", type: "Sequence", ports: {}, children: [] },
+    };
     const { nodes } = treeToFlow(tree);
     expect(nodes).toHaveLength(1);
   });
@@ -382,12 +435,13 @@ describe('treeToFlow', () => {
 ```
 
 **Playwright (E2E):**
-```typescript
-import { test, expect } from '@playwright/test';
 
-test('import XML button opens file picker', async({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: /import/i }).click();
+```typescript
+import { test, expect } from "@playwright/test";
+
+test("import XML button opens file picker", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /import/i }).click();
   // ...
 });
 ```

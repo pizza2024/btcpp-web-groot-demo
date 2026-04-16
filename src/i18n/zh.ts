@@ -12,6 +12,9 @@ const zh = {
     dark: '深色',
     light: '浅色',
     help: '帮助',
+    xmlFormat: '格式',
+    xmlFormatV3: 'v3',
+    xmlFormatV4: 'v4',
   },
   // Context menu
   contextMenu: {

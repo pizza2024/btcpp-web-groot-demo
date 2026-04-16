@@ -7,7 +7,7 @@ The project supports two delivery modes:
 - Standalone web editor for direct browser use
 - Embeddable `BTEditor` React component for integration into other applications
 
-It targets BehaviorTree.CPP XML v4 workflows and runs fully on the client side.
+It targets BehaviorTree.CPP XML v3 and v4 workflows and runs fully on the client side.
 
 ![BT Editor screenshot](https://github.com/user-attachments/assets/04b0ed13-ed28-4e66-acc2-90e21d4d769f)
 
@@ -30,7 +30,7 @@ The latest commits after `v0.1.0` mainly focused on editor usability and package
 - Multi-tree project management with `SubTree` references
 - Auto-layout and beautify layout for faster tree cleanup
 - Properties panel for node instance editing
-- XML import/export compatible with `BTCPP_format="4"`
+- XML import/export compatible with `BTCPP_format="3"` and `BTCPP_format="4"`
 - XML preview panel with formatting and editing support
 - Debug/log replay panel with timeline stepping and status highlighting
 - Favorites panel and reusable templates for faster node creation
@@ -83,14 +83,14 @@ pnpm build
 Install the package in your host application and render `BTEditor` inside a container with an explicit size.
 
 ```tsx
-import { BTEditor } from 'bt-editor';
+import { BTEditor } from "bt-editor";
 
 export function Example() {
-	return (
-		<div style={{ width: 960, height: 640 }}>
-			<BTEditor storageKey="bt-editor-demo" />
-		</div>
-	);
+  return (
+    <div style={{ width: 960, height: 640 }}>
+      <BTEditor storageKey="bt-editor-demo" />
+    </div>
+  );
 }
 ```
 
@@ -148,17 +148,17 @@ Supported statuses: `IDLE`, `RUNNING`, `SUCCESS`, `FAILURE`
 
 ## Scripts
 
-| Script | Description |
-|---|---|
-| `pnpm dev` | Start the Vite development server |
-| `pnpm build:web` | Build the standalone web app |
-| `pnpm build:lib` | Build the component library |
-| `pnpm build` | Build both outputs |
-| `pnpm lint` | Run ESLint |
-| `pnpm test` | Start Vitest in watch mode |
-| `pnpm test:run` | Run Vitest once |
-| `pnpm test:e2e` | Run Playwright end-to-end tests |
-| `pnpm preview` | Preview the production web build |
+| Script           | Description                       |
+| ---------------- | --------------------------------- |
+| `pnpm dev`       | Start the Vite development server |
+| `pnpm build:web` | Build the standalone web app      |
+| `pnpm build:lib` | Build the component library       |
+| `pnpm build`     | Build both outputs                |
+| `pnpm lint`      | Run ESLint                        |
+| `pnpm test`      | Start Vitest in watch mode        |
+| `pnpm test:run`  | Run Vitest once                   |
+| `pnpm test:e2e`  | Run Playwright end-to-end tests   |
+| `pnpm preview`   | Preview the production web build  |
 
 ## Tech Stack
 

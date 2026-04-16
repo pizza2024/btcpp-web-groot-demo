@@ -136,4 +136,34 @@ test.describe('XML Import', () => {
     expect(exportedXml2).toContain('MainTree');
     expect(exportedXml2).toContain('GraspPipeline');
   });
+
+  test('导入 v3 格式 XML 文件', async ({ page }) => {
+    await page.goto('/');
+
+    const v3Xml = `<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="3" main_tree_to_execute="TestTree">
+  <BehaviorTree ID="TestTree">
+    <Sequence name="Root">
+      <Action ID="TestAction"/>
+    </Sequence>
+  </BehaviorTree>
+  <TreeNodesModel>
+    <Action ID="TestAction"/>
+  </TreeNodesModel>
+</root>`;
+
+    const fileInput = page.locator('input[type="file"][accept=".xml"]');
+    await fileInput.setInputFiles({
+      name: 'v3-test.xml',
+      mimeType: 'text/xml',
+      buffer: Buffer.from(v3Xml),
+    });
+
+    await page.waitForTimeout(1000);
+
+    // Verify the tree was loaded
+    const nodeTexts = await page.locator('.react-flow__node').allTextContents();
+    expect(nodeTexts.length).toBeGreaterThan(0);
+    expect(nodeTexts.some((t) => t.includes('Control'))).toBeTruthy();
+  });
 });
