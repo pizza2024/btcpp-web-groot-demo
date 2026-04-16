@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Toolbar from '../components/Toolbar';
 import NodePalette from '../components/NodePalette';
@@ -23,6 +23,8 @@ const BTEditorContent: React.FC<Pick<BTEditorProps, 'className'>> = ({ className
   const storeApi = useBTStoreApi();
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
+  const [leftTopPaneRatio, setLeftTopPaneRatio] = useState(0.42);
+  const leftSidebarRef = useRef<HTMLDivElement | null>(null);
   const bothSidebarsCollapsed = leftSidebarCollapsed && rightSidebarCollapsed;
 
   const toggleBothSidebars = () => {
@@ -40,14 +42,73 @@ const BTEditorContent: React.FC<Pick<BTEditorProps, 'className'>> = ({ className
     storeApi.getState().initTheme();
   }, [storeApi]);
 
+  useEffect(() => {
+    const handlePointerUp = () => {
+      document.body.classList.remove('is-resizing-panels');
+    };
+
+    window.addEventListener('mouseup', handlePointerUp);
+    return () => window.removeEventListener('mouseup', handlePointerUp);
+  }, []);
+
+  const startLeftSidebarResize = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+
+    const sidebarElement = leftSidebarRef.current;
+    if (!sidebarElement) return;
+
+    const bounds = sidebarElement.getBoundingClientRect();
+    const dividerHeight = 8;
+    const minPaneHeight = 120;
+    const totalHeight = bounds.height;
+    const minRatio = minPaneHeight / totalHeight;
+    const maxRatio = (totalHeight - minPaneHeight - dividerHeight) / totalHeight;
+
+    document.body.classList.add('is-resizing-panels');
+
+    const handlePointerMove = (moveEvent: MouseEvent) => {
+      const nextOffset = moveEvent.clientY - bounds.top;
+      const nextRatio = nextOffset / totalHeight;
+      const clampedRatio = Math.min(maxRatio, Math.max(minRatio, nextRatio));
+      setLeftTopPaneRatio(clampedRatio);
+    };
+
+    const handlePointerUp = () => {
+      document.body.classList.remove('is-resizing-panels');
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+    };
+
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+  };
+
   return (
     <div className={`app-layout ${className}`.trim()}>
       <Toolbar />
       <div className="main-area">
         <div className={`left-sidebar-area${leftSidebarCollapsed ? ' collapsed' : ''}`}>
-          <div className="left-sidebar">
-            <NodePalette />
-            <TreeManager />
+          <div className="left-sidebar" ref={leftSidebarRef}>
+            <div className="left-sidebar-split">
+              <div
+                className="left-sidebar-pane top"
+                style={{ flexBasis: `${leftTopPaneRatio * 100}%` }}
+              >
+                <TreeManager />
+              </div>
+              <div
+                className="left-sidebar-divider"
+                onMouseDown={startLeftSidebarResize}
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="Resize left sidebar panels"
+              >
+                <span className="left-sidebar-divider-handle" />
+              </div>
+              <div className="left-sidebar-pane bottom">
+                <NodePalette />
+              </div>
+            </div>
           </div>
           <button
             type="button"

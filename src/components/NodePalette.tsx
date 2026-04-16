@@ -71,72 +71,35 @@ const NodePalette: React.FC = () => {
         <span className="collapse-icon">{collapsed ? '▶' : '▼'}</span>
       </div>
       {!collapsed && (
-      <>
-      {/* Search box */}
-      <div style={{ padding: '8px 8px 4px 8px' }}>
-        <input
-          type="text"
-          placeholder={t('palette.searchPlaceholder')}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '6px 10px',
-            background: '#0d0d1a',
-            border: '1px solid #334',
-            borderRadius: 4,
-            color: '#ccd',
-            fontSize: 12,
-            boxSizing: 'border-box',
-          }}
-        />
-      </div>
+      <div className="panel-body node-palette-body">
+        <div className="node-palette-scroll">
+          {/* Search box */}
+          <div style={{ padding: '8px 8px 4px 8px' }}>
+            <input
+              type="text"
+              placeholder={t('palette.searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '6px 10px',
+                background: '#0d0d1a',
+                border: '1px solid #334',
+                borderRadius: 4,
+                color: '#ccd',
+                fontSize: 12,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
 
-      {/* Search results or category list */}
-      {filteredNodes !== null ? (
-        <div style={{ padding: '4px 4px 0 4px' }}>
-          {filteredNodes.length > 0 ? (
-            filteredNodes.map((node) => {
-              const colors = CATEGORY_COLORS[node.category];
-              return (
-                <PaletteItem
-                  key={node.type}
-                  def={node}
-                  colors={colors}
-                  onDragStart={onDragStart}
-                  customModelLabel={t('palette.customModel')}
-                  onOpen={() => setModelModal({ mode: 'view', def: node })}
-                  onEdit={!node.builtin ? () => setModelModal({ mode: 'edit', def: node }) : undefined}
-                  onDelete={!node.builtin ? deleteNodeModel : undefined}
-                />
-              );
-            })
-          ) : (
-            <div style={{ fontSize: 11, color: '#556', padding: '8px' }}>
-              No models match &quot;{searchQuery}&quot;
-            </div>
-          )}
-        </div>
-      ) : (
-        CATEGORIES.map((cat) => {
-          const nodes = byCategory(cat);
-          const colors = CATEGORY_COLORS[cat];
-          const isExpanded = expandedCats.has(cat);
-
-          return (
-            <div key={cat} style={{ marginBottom: 4 }}>
-              <button
-                className="cat-header"
-                style={{ borderColor: colors.border, color: colors.text }}
-                onClick={() => toggleCat(cat)}
-              >
-                <span>{isExpanded ? '▼' : '▶'} {cat}</span>
-                <span style={{ fontSize: 10, opacity: 0.7 }}>{nodes.length}</span>
-              </button>
-
-              {isExpanded && (
-                <div style={{ paddingLeft: 4 }}>
-                  {nodes.map((node) => (
+          {/* Search results or category list */}
+          {filteredNodes !== null ? (
+            <div style={{ padding: '4px 4px 0 4px' }}>
+              {filteredNodes.length > 0 ? (
+                filteredNodes.map((node) => {
+                  const colors = CATEGORY_COLORS[node.category];
+                  return (
                     <PaletteItem
                       key={node.type}
                       def={node}
@@ -147,29 +110,68 @@ const NodePalette: React.FC = () => {
                       onEdit={!node.builtin ? () => setModelModal({ mode: 'edit', def: node }) : undefined}
                       onDelete={!node.builtin ? deleteNodeModel : undefined}
                     />
-                  ))}
-                  {nodes.length === 0 && (
-                    <div style={{ fontSize: 11, color: '#556', padding: '4px 8px' }}>
-                      No nodes
-                    </div>
-                  )}
+                  );
+                })
+              ) : (
+                <div style={{ fontSize: 11, color: '#556', padding: '8px' }}>
+                  No models match &quot;{searchQuery}&quot;
                 </div>
               )}
             </div>
-          );
-        })
-      )}
+          ) : (
+            CATEGORIES.map((cat) => {
+              const nodes = byCategory(cat);
+              const colors = CATEGORY_COLORS[cat];
+              const isExpanded = expandedCats.has(cat);
 
-      {/* Add custom node button */}
-      <div style={{ marginTop: 12, borderTop: '1px solid #334', paddingTop: 8 }}>
-        <button
-          className="btn-primary"
-          onClick={() => setModelModal({ mode: 'create', defaultCategory: 'Action' })}
-          style={{ width: '100%' }}
-        >
-          + Add Model
-        </button>
-      </div>
+              return (
+                <div key={cat} style={{ marginBottom: 4 }}>
+                  <button
+                    className="cat-header"
+                    style={{ borderColor: colors.border, color: colors.text }}
+                    onClick={() => toggleCat(cat)}
+                  >
+                    <span>{isExpanded ? '▼' : '▶'} {cat}</span>
+                    <span style={{ fontSize: 10, opacity: 0.7 }}>{nodes.length}</span>
+                  </button>
+
+                  {isExpanded && (
+                    <div style={{ paddingLeft: 4 }}>
+                      {nodes.map((node) => (
+                        <PaletteItem
+                          key={node.type}
+                          def={node}
+                          colors={colors}
+                          onDragStart={onDragStart}
+                          customModelLabel={t('palette.customModel')}
+                          onOpen={() => setModelModal({ mode: 'view', def: node })}
+                          onEdit={!node.builtin ? () => setModelModal({ mode: 'edit', def: node }) : undefined}
+                          onDelete={!node.builtin ? deleteNodeModel : undefined}
+                        />
+                      ))}
+                      {nodes.length === 0 && (
+                        <div style={{ fontSize: 11, color: '#556', padding: '4px 8px' }}>
+                          No nodes
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Add custom node button */}
+        <div className="node-palette-footer">
+          <button
+            className="btn-primary"
+            onClick={() => setModelModal({ mode: 'create', defaultCategory: 'Action' })}
+            style={{ width: '100%' }}
+          >
+            + Add Model
+          </button>
+        </div>
 
       {/* Node Model Modal (Create or Edit) */}
       {modelModal?.mode === 'create' && (
@@ -197,7 +199,7 @@ const NodePalette: React.FC = () => {
           onClose={() => setModelModal(null)}
         />
       )}
-      </>
+      </div>
       )}
     </div>
   );

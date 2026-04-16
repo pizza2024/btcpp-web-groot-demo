@@ -49,4 +49,12 @@ test.describe('SubTree Preview', () => {
 
     await expect(page.locator('.tree-item.active')).toContainText('GraspPipeline');
   });
+
+  test('SubTree Ctrl/Cmd double-click opens referenced tree tab', async ({ page }) => {
+    const subtreeNode = page.locator('.react-flow__node').filter({ hasText: 'GraspPipeline' }).first();
+    await subtreeNode.dblclick({ modifiers: ['Control'] });
+
+    await expect(page.locator('.tree-item.active')).toContainText('GraspPipeline');
+    await expect(page.locator('.tree-tab.active')).toContainText('GraspPipeline');
+  });
 });

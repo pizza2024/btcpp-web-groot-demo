@@ -90,4 +90,47 @@ test.describe('Tree Management', () => {
     // Verify it now has main tree indicator
     await expect(futureMainItem).toContainText('★');
   });
+
+  test('树标签页支持切换和关闭', async ({ page }) => {
+    await page.goto('/');
+    await loadSampleTree(page);
+
+    const treeInput = page.locator('.tree-manager input[placeholder="NewTreeName"]');
+    await treeInput.fill('TabTree');
+    await page.locator('.tree-manager .btn-primary').click();
+
+    const tabTreeTab = page.locator('.tree-tab', { hasText: 'TabTree' });
+    await expect(tabTreeTab).toBeVisible();
+    await expect(page.locator('.tree-tab.active')).toContainText('TabTree');
+
+    await page.locator('.tree-item', { hasText: 'MainTree' }).click();
+    await expect(page.locator('.tree-tab.active')).toContainText('MainTree');
+
+    await tabTreeTab.locator('.tree-tab-close').click();
+    await expect(page.locator('.tree-tab', { hasText: 'TabTree' })).toHaveCount(0);
+  });
+
+  test('树标签页支持右键关闭其它标签页', async ({ page }) => {
+    await page.goto('/');
+    await loadSampleTree(page);
+
+    const treeInput = page.locator('.tree-manager input[placeholder="NewTreeName"]');
+    await treeInput.fill('TabA');
+    await page.locator('.tree-manager .btn-primary').click();
+    await treeInput.fill('TabB');
+    await page.locator('.tree-manager .btn-primary').click();
+
+    const tabA = page.locator('.tree-tab', { hasText: 'TabA' });
+    await tabA.click({ button: 'right' });
+    await page.getByRole('button', { name: 'Close Others' }).click();
+
+    await expect(page.locator('.tree-tab')).toHaveCount(1);
+    await expect(page.locator('.tree-tab.active')).toContainText('TabA');
+  });
+
+  test('树面板显示 Project 分组', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.tree-group-header')).toContainText('Project');
+    await expect(page.locator('.tree-group-children .tree-item')).toHaveCount(1);
+  });
 });

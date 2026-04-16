@@ -135,8 +135,8 @@ const Toolbar: React.FC = () => {
         </label>
       </div>
       {formatSwitchLocked && (
-        <div style={{ fontSize: '11px', color: '#8899bb', paddingRight: '8px' }} title="Version switching is locked once the current project has tree content.">
-          Locked
+        <div style={{ fontSize: '11px', color: '#8899bb', paddingRight: '8px' }} title={t('toolbar.formatLockedHint')}>
+          {t('toolbar.formatLocked')}
         </div>
       )}
       <button className="toolbar-btn" onClick={handleExportPNG} title={t('toolbar.exportPng')}>

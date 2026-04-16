@@ -15,6 +15,8 @@ const zh = {
     xmlFormat: '格式',
     xmlFormatV3: 'v3',
     xmlFormatV4: 'v4',
+    formatLocked: '已锁定',
+    formatLockedHint: '当前工程已有树内容时，不允许切换版本。',
   },
   // Context menu
   contextMenu: {
@@ -25,6 +27,7 @@ const zh = {
     copy: '复制',
     paste: '粘贴',
     convertToSubtree: '转换为子树',
+    openReferencedTree: '打开引用树',
   },
   // Properties panel
   properties: {
@@ -132,6 +135,16 @@ const zh = {
     panel: '行为树',
     delete: '删除',
     newTreePlaceholder: '新树名称',
+    filterPlaceholder: '过滤树...',
+    openInTab: '在标签页打开',
+    noTreesFound: '未找到匹配的树',
+    projectGroup: 'Project',
+  },
+  treeTabs: {
+    panel: '已打开的树',
+    close: '关闭标签页',
+    closeOthers: '关闭其它标签页',
+    closeToRight: '关闭右侧标签页',
   },
   // Node palette
   palette: {

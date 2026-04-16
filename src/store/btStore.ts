@@ -58,6 +58,7 @@ export interface FavoriteTemplate {
 export interface BTStore {
   project: BTProject;
   activeTreeId: string;
+  openedTreeIds: string[];
   selectedNodeId: string | null;
   debugState: DebugState;
   groot2State: Groot2State;
@@ -86,6 +87,10 @@ export interface BTStore {
 
   // Tree actions
   setActiveTree: (id: string) => void;
+  openTreeTab: (id: string) => void;
+  closeTreeTab: (id: string) => void;
+  closeOtherTreeTabs: (id: string) => void;
+  closeTreeTabsToRight: (id: string) => void;
   addTree: (id: string) => void;
   renameTree: (oldId: string, newId: string) => void;
   deleteTree: (id: string) => void;
@@ -163,6 +168,7 @@ export const createBTStore = (storageKey = 'bt-tree-editor') => create<BTStore>(
     (set, get) => ({
   project: defaultProject(),
   activeTreeId: 'MainTree',
+  openedTreeIds: ['MainTree'],
   selectedNodeId: null,
   debugState: defaultDebug,
   localNodes: [],
@@ -249,7 +255,15 @@ export const createBTStore = (storageKey = 'bt-tree-editor') => create<BTStore>(
   loadXML(xml) {
     try {
       const project = parseXML(xml);
-      set({ project, activeTreeId: project.mainTreeId, selectedNodeId: null, debugState: defaultDebug, localNodes: [], localEdges: [] });
+      set({
+        project,
+        activeTreeId: project.mainTreeId,
+        openedTreeIds: [project.mainTreeId],
+        selectedNodeId: null,
+        debugState: defaultDebug,
+        localNodes: [],
+        localEdges: [],
+      });
       return project;
     } catch (e) {
       alert('Failed to parse XML:\n' + (e as Error).message);
@@ -273,11 +287,68 @@ export const createBTStore = (storageKey = 'bt-tree-editor') => create<BTStore>(
   },
 
   setProject(p) {
-    set({ project: p, localNodes: [], localEdges: [] });
+    set({
+      project: p,
+      activeTreeId: p.mainTreeId,
+      openedTreeIds: [p.mainTreeId],
+      selectedNodeId: null,
+      localNodes: [],
+      localEdges: [],
+    });
   },
 
   setActiveTree(id) {
-    set({ activeTreeId: id, selectedNodeId: null });
+    const { project, openedTreeIds } = get();
+    if (!project.trees.some((tree) => tree.id === id)) return;
+    const nextOpened = openedTreeIds.includes(id)
+      ? openedTreeIds
+      : [...openedTreeIds, id];
+    set({ activeTreeId: id, openedTreeIds: nextOpened, selectedNodeId: null });
+  },
+
+  openTreeTab(id) {
+    const { project, openedTreeIds } = get();
+    if (!project.trees.some((tree) => tree.id === id)) return;
+    const nextOpened = openedTreeIds.includes(id)
+      ? openedTreeIds
+      : [...openedTreeIds, id];
+    set({ openedTreeIds: nextOpened, activeTreeId: id, selectedNodeId: null });
+  },
+
+  closeTreeTab(id) {
+    const { openedTreeIds, activeTreeId, project } = get();
+    if (openedTreeIds.length <= 1) return;
+    if (!openedTreeIds.includes(id)) return;
+
+    const existingTreeIds = new Set(project.trees.map((tree) => tree.id));
+    const filtered = openedTreeIds.filter((treeId) => treeId !== id && existingTreeIds.has(treeId));
+    const nextOpened = filtered.length > 0 ? filtered : [project.mainTreeId];
+
+    let nextActive = activeTreeId;
+    if (activeTreeId === id) {
+      const closedIndex = openedTreeIds.indexOf(id);
+      nextActive = nextOpened[Math.min(closedIndex, nextOpened.length - 1)] ?? project.mainTreeId;
+    }
+
+    set({ openedTreeIds: nextOpened, activeTreeId: nextActive, selectedNodeId: null });
+  },
+
+  closeOtherTreeTabs(id) {
+    const { project, openedTreeIds } = get();
+    if (!openedTreeIds.includes(id)) return;
+    const nextActive = project.trees.some((tree) => tree.id === id) ? id : project.mainTreeId;
+    set({ openedTreeIds: [nextActive], activeTreeId: nextActive, selectedNodeId: null });
+  },
+
+  closeTreeTabsToRight(id) {
+    const { openedTreeIds, activeTreeId, project } = get();
+    const tabIndex = openedTreeIds.indexOf(id);
+    if (tabIndex === -1) return;
+
+    const nextOpened = openedTreeIds.slice(0, tabIndex + 1);
+    const nextActive = nextOpened.includes(activeTreeId) ? activeTreeId : id;
+    const ensuredActive = project.trees.some((tree) => tree.id === nextActive) ? nextActive : project.mainTreeId;
+    set({ openedTreeIds: nextOpened, activeTreeId: ensuredActive, selectedNodeId: null });
   },
 
   addTree(id) {
@@ -298,31 +369,57 @@ export const createBTStore = (storageKey = 'bt-tree-editor') => create<BTStore>(
     set({
       project: { ...project, trees: [...project.trees, newTree] },
       activeTreeId: id,
+      openedTreeIds: [...get().openedTreeIds, id],
     });
   },
 
   renameTree(oldId, newId) {
-    const { project } = get();
+    const { project, openedTreeIds } = get();
     if (project.trees.find((t) => t.id === newId)) {
       alert(`Tree "${newId}" already exists`);
       return;
     }
-    const trees = project.trees.map((t) => (t.id === oldId ? { ...t, id: newId } : t));
+    const trees = project.trees.map((t) => {
+      const renamedTree = t.id === oldId ? { ...t, id: newId } : t;
+      return {
+        ...renamedTree,
+        root: remapSubTreeTargetRecursive(renamedTree.root, oldId, newId),
+      };
+    });
     const mainTreeId = project.mainTreeId === oldId ? newId : project.mainTreeId;
-    set({ project: { ...project, trees, mainTreeId }, activeTreeId: newId });
+    const nextOpened = openedTreeIds.map((treeId) => (treeId === oldId ? newId : treeId));
+    set({ project: { ...project, trees, mainTreeId }, activeTreeId: newId, openedTreeIds: nextOpened });
   },
 
   deleteTree(id) {
-    const { project } = get();
+    const { project, openedTreeIds, activeTreeId } = get();
     if (project.trees.length <= 1) {
       alert('Cannot delete the only tree');
       return;
     }
+
+    const referencedByTrees = project.trees
+      .filter((tree) => tree.id !== id)
+      .filter((tree) => treeReferencesTarget(tree.root, id))
+      .map((tree) => tree.id);
+    if (referencedByTrees.length > 0) {
+      alert(
+        `Cannot delete tree "${id}" because it is referenced by SubTree nodes in: ${referencedByTrees.join(', ')}`
+      );
+      return;
+    }
+
     const trees = project.trees.filter((t) => t.id !== id);
     const mainTreeId = project.mainTreeId === id ? trees[0].id : project.mainTreeId;
+    const remainingOpened = openedTreeIds.filter((treeId) => treeId !== id);
+    const openedTreeIdsNext = remainingOpened.length > 0 ? remainingOpened : [mainTreeId];
+    const activeTreeIdNext = activeTreeId === id
+      ? (openedTreeIdsNext[openedTreeIdsNext.length - 1] ?? mainTreeId)
+      : activeTreeId;
     set({
       project: { ...project, trees, mainTreeId },
-      activeTreeId: mainTreeId,
+      activeTreeId: activeTreeIdNext,
+      openedTreeIds: openedTreeIdsNext,
     });
   },
 
@@ -413,7 +510,8 @@ export const createBTStore = (storageKey = 'bt-tree-editor') => create<BTStore>(
     }
   },
 
-  deleteSelectedNodes(_nodes: Node[]) {
+  deleteSelectedNodes(nodes: Node[]) {
+    void nodes;
     const { selectedNodeIds } = get();
     const idsToDelete = new Set(selectedNodeIds);
 
@@ -725,6 +823,7 @@ export const createBTStore = (storageKey = 'bt-tree-editor') => create<BTStore>(
       partialize: (state) => ({
         project: state.project,
         activeTreeId: state.activeTreeId,
+        openedTreeIds: state.openedTreeIds,
       }),
     }
   )
@@ -850,4 +949,28 @@ function replaceNodeTypeRecursive(
     ...nextNode,
     children: nextNode.children.map((child) => replaceNodeTypeRecursive(child, oldType, newType)),
   };
+}
+
+function remapSubTreeTargetRecursive(
+  node: import('../types/bt').BTTreeNode,
+  oldTreeId: string,
+  newTreeId: string
+): import('../types/bt').BTTreeNode {
+  const shouldRetarget = node.type === 'SubTree' && node.name === oldTreeId;
+  const nextNode = shouldRetarget ? { ...node, name: newTreeId } : node;
+  if (nextNode.children.length === 0) return nextNode;
+  return {
+    ...nextNode,
+    children: nextNode.children.map((child) => remapSubTreeTargetRecursive(child, oldTreeId, newTreeId)),
+  };
+}
+
+function treeReferencesTarget(
+  node: import('../types/bt').BTTreeNode,
+  targetTreeId: string
+): boolean {
+  if (node.type === 'SubTree' && node.name === targetTreeId) {
+    return true;
+  }
+  return node.children.some((child) => treeReferencesTarget(child, targetTreeId));
 }

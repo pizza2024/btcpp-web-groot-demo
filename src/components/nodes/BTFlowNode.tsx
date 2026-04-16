@@ -3,6 +3,7 @@ import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { STATUS_COLORS } from '../../types/bt-constants';
 import type { BTPort } from '../../types/bt';
+import { useTranslation } from 'react-i18next';
 
 interface BTNodeData {
   label: string;
@@ -23,6 +24,7 @@ interface BTNodeData {
 }
 
 const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId }) => {
+  const { t } = useTranslation();
   const d = data as BTNodeData;
   const { label, category, colors, ports, preconditions, postconditions, description, status, isRoot, isCollapsed, cdata } = d;
 
@@ -32,6 +34,7 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
 
   const isLeaf = category === 'Action' || category === 'Condition' || category === 'SubTree';
   const isRootNode = isRoot === true;
+  const isSubTreeNode = category === 'SubTree';
 
   // Memoize port entries grouping
   const { inputPorts, outputPorts, inoutPorts, hasPre, hasPost, portEntries, preEntries, postEntries } = useMemo(() => {
@@ -123,7 +126,22 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
   const handleDoubleClick = (e: React.MouseEvent) => {
     if (isRootNode) return;
     e.stopPropagation();
+
+    if (isSubTreeNode && (e.ctrlKey || e.metaKey)) {
+      window.dispatchEvent(new CustomEvent('bt-open-subtree', {
+        detail: { nodeId }
+      }));
+      return;
+    }
+
     window.dispatchEvent(new CustomEvent('bt-node-edit', {
+      detail: { nodeId }
+    }));
+  };
+
+  const handleOpenSubTreeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('bt-open-subtree', {
       detail: { nodeId }
     }));
   };
@@ -245,6 +263,30 @@ const BTFlowNode: React.FC<NodeProps> = React.memo(({ data, selected, id: nodeId
       <div style={{ fontSize: 9, opacity: 0.7, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {category === 'SubTree' ? 'SubTree' : (isLeaf ? 'Action' : category)}
       </div>
+
+      {isSubTreeNode && (
+        <button
+          type="button"
+          onClick={handleOpenSubTreeClick}
+          title={`${t('contextMenu.openReferencedTree')} (Ctrl/Cmd+Double Click)`}
+          aria-label={t('contextMenu.openReferencedTree')}
+          style={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.18)',
+            color: colors.text,
+            borderRadius: 4,
+            padding: '1px 5px',
+            fontSize: 10,
+            cursor: 'pointer',
+            lineHeight: 1.2,
+          }}
+        >
+          ↗
+        </button>
+      )}
 
       {hasPre && (
         <div style={{ marginBottom: 6 }}>

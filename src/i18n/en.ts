@@ -15,6 +15,8 @@ const en = {
     xmlFormat: 'Format',
     xmlFormatV3: 'v3',
     xmlFormatV4: 'v4',
+    formatLocked: 'Locked',
+    formatLockedHint: 'Version switching is locked once the current project has tree content.',
   },
   // Context menu
   contextMenu: {
@@ -25,6 +27,7 @@ const en = {
     copy: 'Copy',
     paste: 'Paste',
     convertToSubtree: 'Convert to Subtree',
+    openReferencedTree: 'Open Referenced Tree',
   },
   // Properties panel
   properties: {
@@ -132,6 +135,16 @@ const en = {
     panel: 'Behavior Trees',
     delete: 'Delete',
     newTreePlaceholder: 'NewTreeName',
+    filterPlaceholder: 'Filter trees...',
+    openInTab: 'Open in Tab',
+    noTreesFound: 'No trees found',
+    projectGroup: 'Project',
+  },
+  treeTabs: {
+    panel: 'Opened Trees',
+    close: 'Close Tab',
+    closeOthers: 'Close Others',
+    closeToRight: 'Close Tabs To The Right',
   },
   // Node palette
   palette: {

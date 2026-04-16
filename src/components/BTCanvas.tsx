@@ -38,6 +38,7 @@ import NodeEditModal from './NodeEditModal';
 import CdataEditModal from './CdataEditModal';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import NodeSearchModal from './NodeSearchModal';
+import TreeTabs from './TreeTabs';
 
 const nodeTypes = { btNode: BTFlowNode };
 const edgeTypes = { btEdge: BTFlowEdge };
@@ -967,6 +968,28 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
     return () => window.removeEventListener('bt-node-edit', handleNodeEdit);
   }, []);
 
+  React.useEffect(() => {
+    const handleOpenSubTree = (e: Event) => {
+      const customEvent = e as CustomEvent<{ nodeId: string }>;
+      const node = nodes.find((item) => item.id === customEvent.detail.nodeId);
+      if (!node) return;
+
+      const data = node.data as { nodeType?: string; label?: string };
+      if (data.nodeType !== 'SubTree' || !data.label) return;
+
+      const targetTree = project.trees.find((tree) => tree.id === data.label);
+      if (!targetTree || targetTree.id === activeTreeId) return;
+
+      setActiveTree(targetTree.id);
+      setSelectedEdgeId(null);
+      clearSelection();
+      hideMenu();
+    };
+
+    window.addEventListener('bt-open-subtree', handleOpenSubTree);
+    return () => window.removeEventListener('bt-open-subtree', handleOpenSubTree);
+  }, [nodes, project.trees, activeTreeId, setActiveTree, clearSelection, hideMenu]);
+
   // Handle PNG export
   React.useEffect(() => {
     const handleExportPNG = async () => {
@@ -1579,7 +1602,9 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
   }, [menuState, nodes, deleteEdge, copyNode, pasteClipboardNode, clearSelection, toggleNodeCollapse, beautifyLayout, project.trees, activeTreeId, setActiveTree]);
 
   return (
-    <div ref={canvasContainerRef} onMouseMove={handleCanvasMouseMove} style={{ width: '100%', height: '100%' }}>
+    <div ref={canvasContainerRef} onMouseMove={handleCanvasMouseMove} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <TreeTabs />
+      <div style={{ width: '100%', height: '100%', minHeight: 0, position: 'relative' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -1787,6 +1812,7 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
           onClose={() => setShowNodeSearch(false)}
         />
       )}
+      </div>
     </div>
   );
 };
