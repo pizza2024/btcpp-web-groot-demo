@@ -11,21 +11,29 @@ function isProjectModeSwitchLocked(project: { trees: Array<{ root: { children: u
 const Toolbar: React.FC = () => {
   const { t, i18n } = useTranslation();
   
-  // Use separate selectors to avoid object reference issues
+  // Separate selectors for each value to maintain proper reactivity
+  // Use arrow functions to ensure they return the same reference for same values
   const loadXML = useBTStore((state) => state.loadXML);
   const exportXML = useBTStore((state) => state.exportXML);
   const setExportFormat = useBTStore((state) => state.setExportFormat);
   const toggleTheme = useBTStore((state) => state.toggleTheme);
-  
-  // These need to trigger re-renders when they change
   const project = useBTStore((state) => state.project);
   const activeTreeId = useBTStore((state) => state.activeTreeId);
   const theme = useBTStore((state) => state.theme);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [missingModelCandidates, setMissingModelCandidates] = useState<MissingNodeModelCandidate[]>([]);
+  
+  // Extract xmlFormat from the latest project state
   const xmlFormat: 3 | 4 = project.exportFormat ?? 4;
   const formatSwitchLocked = isProjectModeSwitchLocked(project);
+
+  // Debug: Log whenever the project changes
+  useEffect(() => {
+    console.log('=== Toolbar: project object changed ===');
+    console.log('project.exportFormat:', project.exportFormat);
+    console.log('xmlFormat:', xmlFormat);
+  }, [project]);
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'en' ? 'zh' : 'en';
@@ -68,7 +76,14 @@ const Toolbar: React.FC = () => {
       } catch {
         candidates = [];
       }
+      console.log('=== About to load XML ===');
+      console.log('XML content preview:', xml.substring(0, 300));
       const importedProject = loadXML(xml);
+      if (importedProject) {
+        console.log('=== Import completed ===');
+        console.log('importedProject.exportFormat:', importedProject.exportFormat);
+        console.log('project in store:', project);
+      }
       if (!importedProject) return;
       setMissingModelCandidates(candidates);
     };
@@ -104,46 +119,55 @@ const Toolbar: React.FC = () => {
         ⬇ {t('toolbar.exportXml')}
       </button>
       {/* XML Format selector */}
-      <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginLeft: '8px', paddingRight: '8px' }}>
-        <label style={{ fontSize: '12px', color: '#8899bb', minWidth: '40px' }}>
-          {t('toolbar.xmlFormat')}:
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-          <input
-            type="radio"
-            name="xml-format"
-            value="3"
-            checked={xmlFormat === 3}
-            disabled={formatSwitchLocked}
-            onChange={(e) => {
-              const fmt = parseInt(e.target.value) as 3 | 4;
-              setExportFormat(fmt);
-            }}
-            style={{ margin: 0 }}
-          />
-          <span style={{ fontSize: '12px' }}>{t('toolbar.xmlFormatV3')}</span>
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-          <input
-            type="radio"
-            name="xml-format"
-            value="4"
-            checked={xmlFormat === 4}
-            disabled={formatSwitchLocked}
-            onChange={(e) => {
-              const fmt = parseInt(e.target.value) as 3 | 4;
-              setExportFormat(fmt);
-            }}
-            style={{ margin: 0 }}
-          />
-          <span style={{ fontSize: '12px' }}>{t('toolbar.xmlFormatV4')}</span>
-        </label>
+      <div style={{ display: 'flex', gap: '2px', alignItems: 'center', marginLeft: '12px', paddingRight: '8px', backgroundColor: '#1e2535', borderRadius: '4px', padding: '4px 8px' }}>
+        <span style={{ fontSize: '12px', color: '#8899bb', marginRight: '4px', fontWeight: 500 }}>
+          {t('toolbar.xmlFormat')}
+        </span>
+        <button
+          onClick={() => {
+            console.log('Clicked V3, current xmlFormat:', xmlFormat);
+            setExportFormat(3);
+          }}
+          disabled={formatSwitchLocked}
+          style={{
+            padding: '4px 10px',
+            fontSize: '12px',
+            fontWeight: xmlFormat === 3 ? 600 : 400,
+            backgroundColor: xmlFormat === 3 ? '#4a80d0' : '#2a3f5f',
+            color: xmlFormat === 3 ? '#ffffff' : '#8899bb',
+            border: xmlFormat === 3 ? '1px solid #6ba3ff' : '1px solid #3a5f8f',
+            borderRadius: '3px',
+            cursor: formatSwitchLocked ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+            opacity: formatSwitchLocked ? 0.5 : 1,
+          }}
+          title={formatSwitchLocked ? t('toolbar.formatLockedHint') : 'Select BehaviorTree.CPP v3 format'}
+        >
+          v3
+        </button>
+        <button
+          onClick={() => {
+            console.log('Clicked V4, current xmlFormat:', xmlFormat);
+            setExportFormat(4);
+          }}
+          disabled={formatSwitchLocked}
+          style={{
+            padding: '4px 10px',
+            fontSize: '12px',
+            fontWeight: xmlFormat === 4 ? 600 : 400,
+            backgroundColor: xmlFormat === 4 ? '#4a80d0' : '#2a3f5f',
+            color: xmlFormat === 4 ? '#ffffff' : '#8899bb',
+            border: xmlFormat === 4 ? '1px solid #6ba3ff' : '1px solid #3a5f8f',
+            borderRadius: '3px',
+            cursor: formatSwitchLocked ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+            opacity: formatSwitchLocked ? 0.5 : 1,
+          }}
+          title={formatSwitchLocked ? t('toolbar.formatLockedHint') : 'Select BehaviorTree.CPP v4 format'}
+        >
+          v4
+        </button>
       </div>
-      {formatSwitchLocked && (
-        <div style={{ fontSize: '11px', color: '#8899bb', paddingRight: '8px' }} title={t('toolbar.formatLockedHint')}>
-          {t('toolbar.formatLocked')}
-        </div>
-      )}
       <button className="toolbar-btn" onClick={handleExportPNG} title={t('toolbar.exportPng')}>
         🖼️ {t('toolbar.exportPng')}
       </button>
