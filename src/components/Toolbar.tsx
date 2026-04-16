@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBTStore } from '../store/BTStoreProvider';
 import { SAMPLE_XML, analyzeMissingNodeModels, type MissingNodeModelCandidate } from '../utils/btXml';
@@ -10,25 +10,39 @@ function isProjectModeSwitchLocked(project: { trees: Array<{ root: { children: u
 
 const Toolbar: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const { loadXML, exportXML, project, activeTreeId, theme, toggleTheme, setExportFormat } = useBTStore();
+  
+  // Use separate selectors to avoid object reference issues
+  const loadXML = useBTStore((state) => state.loadXML);
+  const exportXML = useBTStore((state) => state.exportXML);
+  const setExportFormat = useBTStore((state) => state.setExportFormat);
+  const toggleTheme = useBTStore((state) => state.toggleTheme);
+  
+  // These need to trigger re-renders when they change
+  const project = useBTStore((state) => state.project);
+  const activeTreeId = useBTStore((state) => state.activeTreeId);
+  const theme = useBTStore((state) => state.theme);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [missingModelCandidates, setMissingModelCandidates] = useState<MissingNodeModelCandidate[]>([]);
-  const [xmlFormat, setXmlFormat] = useState<3 | 4>(project.exportFormat ?? 4);
+  const xmlFormat: 3 | 4 = project.exportFormat ?? 4;
   const formatSwitchLocked = isProjectModeSwitchLocked(project);
-
-  // Sync xmlFormat state when project's exportFormat changes (e.g., after loading XML)
-  useEffect(() => {
-    const detectedFormat = project.exportFormat ?? 4;
-    if (detectedFormat !== xmlFormat) {
-      setXmlFormat(detectedFormat);
-    }
-  }, [project.exportFormat]);
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'en' ? 'zh' : 'en';
     i18n.changeLanguage(newLang);
     localStorage.setItem('bt-language', newLang);
   };
+
+  const handleExport = useCallback(() => {
+    const xml = exportXML();
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `${project.mainTreeId}.xml`;
+    a.click();
+    URL.revokeObjectURL(blobUrl);
+  }, [exportXML, project.mainTreeId]);
 
   // Ctrl+S: Export XML
   useEffect(() => {
@@ -40,7 +54,7 @@ const Toolbar: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [project.mainTreeId]);
+  }, [handleExport]);
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,17 +74,6 @@ const Toolbar: React.FC = () => {
     };
     reader.readAsText(file);
     e.target.value = '';
-  };
-
-  const handleExport = () => {
-    const xml = exportXML();
-    const blob = new Blob([xml], { type: 'application/xml' });
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = `${project.mainTreeId}.xml`;
-    a.click();
-    URL.revokeObjectURL(blobUrl);
   };
 
   const handleExportPNG = () => {
@@ -114,7 +117,6 @@ const Toolbar: React.FC = () => {
             disabled={formatSwitchLocked}
             onChange={(e) => {
               const fmt = parseInt(e.target.value) as 3 | 4;
-              setXmlFormat(fmt);
               setExportFormat(fmt);
             }}
             style={{ margin: 0 }}
@@ -130,7 +132,6 @@ const Toolbar: React.FC = () => {
             disabled={formatSwitchLocked}
             onChange={(e) => {
               const fmt = parseInt(e.target.value) as 3 | 4;
-              setXmlFormat(fmt);
               setExportFormat(fmt);
             }}
             style={{ margin: 0 }}

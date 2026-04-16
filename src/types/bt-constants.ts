@@ -660,11 +660,17 @@ export function createNodeModelsForFormat(
   format: BTXmlFormat
 ): BTNodeDefinition[] {
   const builtins = getBuiltinNodesForFormat(format);
-  const builtinTypes = new Set(builtins.map((node) => node.type));
+  const targetBuiltinTypes = new Set(builtins.map((node) => node.type));
+  // Important: drop builtin nodes from ANY format before rebuilding the target format list.
+  const allBuiltinTypes = new Set([
+    ...BUILTIN_NODES_V3.map((node) => node.type),
+    ...BUILTIN_NODES_V4.map((node) => node.type),
+  ]);
 
   const customByType = new Map<string, BTNodeDefinition>();
   existingModels.forEach((model) => {
-    if (builtinTypes.has(model.type)) return;
+    if (targetBuiltinTypes.has(model.type)) return;
+    if (allBuiltinTypes.has(model.type)) return;
     customByType.set(model.type, { ...model, builtin: false });
   });
 

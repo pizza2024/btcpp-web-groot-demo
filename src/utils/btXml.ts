@@ -24,6 +24,11 @@ export interface MissingNodeModelCandidate {
   ports: BTPort[];
 }
 
+function detectXmlFormat(root: Element): XMLFormat {
+  const raw = root.getAttribute('BTCPP_format')?.trim();
+  return raw === '3' ? 3 : 4;
+}
+
 function parseTreeNode(
   el: Element,
   createNodeId: () => string,
@@ -117,7 +122,7 @@ export function analyzeMissingNodeModels(xmlText: string, format?: XMLFormat): M
   }
 
   const root = doc.documentElement;
-  const detectedFormat: XMLFormat = format ?? (root.getAttribute('BTCPP_format') === '3' ? 3 : 4);
+  const detectedFormat: XMLFormat = format ?? detectXmlFormat(root);
   const declaredTypes = new Set<string>();
   const modelEl = root.querySelector(':scope > TreeNodesModel')
     ?? root.querySelector(':scope > TreeConfiguration > TreeNodesModel');
@@ -201,7 +206,7 @@ export function parseXML(xmlText: string): BTProject {
   }
 
   const root = doc.documentElement;
-  const detectedFormat: XMLFormat = root.getAttribute('BTCPP_format') === '3' ? 3 : 4;
+  const detectedFormat: XMLFormat = detectXmlFormat(root);
   const builtinNodes = getBuiltinNodesForFormat(detectedFormat);
 
   // Parse trees

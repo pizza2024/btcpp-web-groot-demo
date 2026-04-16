@@ -76,6 +76,43 @@ describe('parseXML', () => {
     expect(rootChild.type).toBe('IfThenElse');
     expect(project.exportFormat).toBe(3);
   });
+
+  it('detects v3 even when BTCPP_format contains whitespace', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format=" 3 " main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+      <Action ID="AlwaysSuccess"/>
+    </Sequence>
+  </BehaviorTree>
+</root>`;
+
+    const project = parseXML(xml);
+    expect(project.exportFormat).toBe(3);
+  });
+
+  it('falls back to v4 when BTCPP_format is missing or invalid', () => {
+    const xmlMissing = `<?xml version="1.0" encoding="UTF-8"?>
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+      <AlwaysSuccess/>
+    </Sequence>
+  </BehaviorTree>
+</root>`;
+
+    const xmlInvalid = `<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="5" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+      <AlwaysSuccess/>
+    </Sequence>
+  </BehaviorTree>
+</root>`;
+
+    expect(parseXML(xmlMissing).exportFormat).toBe(4);
+    expect(parseXML(xmlInvalid).exportFormat).toBe(4);
+  });
 });
 
 describe('serializeXML', () => {
