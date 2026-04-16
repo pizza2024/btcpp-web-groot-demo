@@ -411,7 +411,11 @@ export function serializeXML(project: BTProject, format?: XMLFormat): string {
   const lines: string[] = ['<?xml version="1.0" encoding="UTF-8"?>'];
   lines.push(`<root BTCPP_format="${targetFormat}" main_tree_to_execute="${escapeXml(project.mainTreeId)}">`);
 
-  project.trees.forEach((tree) => {
+  const sortedTrees = [
+    ...project.trees.filter((t) => t.id === project.mainTreeId),
+    ...project.trees.filter((t) => t.id !== project.mainTreeId),
+  ];
+  sortedTrees.forEach((tree) => {
     lines.push(`  <BehaviorTree ID="${escapeXml(tree.id)}">`);
     lines.push(serializeNode(tree.root, 2, project.nodeModels, targetFormat));
     lines.push('  </BehaviorTree>');
