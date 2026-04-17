@@ -122,24 +122,47 @@ const NodePalette: React.FC = () => {
         <div className="panel-body node-palette-body">
           <div className="node-palette-scroll">
             <div style={{ padding: '8px 8px 4px 8px' }}>
-              <input
-                className="node-palette-search-input"
-                type="text"
-                placeholder={t('palette.searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 4,
-                  color: 'var(--text-primary)',
-                  fontSize: 12,
-                  boxSizing: 'border-box',
-                  boxShadow: isLightTheme ? '0 1px 0 rgba(74, 128, 208, 0.14)' : 'none',
-                }}
-              />
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <input
+                  className="node-palette-search-input"
+                  type="text"
+                  placeholder={t('palette.searchPlaceholder')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '5px 8px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 4,
+                    color: 'var(--text-primary)',
+                    fontSize: 12,
+                    boxSizing: 'border-box',
+                    boxShadow: isLightTheme ? '0 1px 0 rgba(74, 128, 208, 0.14)' : 'none',
+                  }}
+                />
+                <button
+                  type="button"
+                  title="Collapse all categories"
+                  onClick={() => setExpandedCats(new Set())}
+                  style={{
+                    flexShrink: 0,
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 4,
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '4px 7px',
+                    fontSize: 11,
+                    lineHeight: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  ⊟
+                </button>
+              </div>
             </div>
 
             {filteredEntries !== null ? (
