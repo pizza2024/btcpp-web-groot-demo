@@ -2,40 +2,71 @@
 
 A browser-based Behavior Tree editor inspired by Groot2, built with Vite, React, and TypeScript.
 
-The project supports two delivery modes:
+The project provides two delivery modes:
 
 - Standalone web editor for direct browser use
 - Embeddable `BTEditor` React component for integration into other applications
 
-It targets BehaviorTree.CPP XML v3 and v4 workflows and runs fully on the client side.
+It targets BehaviorTree.CPP XML workflows (`BTCPP_format="3"` and `BTCPP_format="4"`) and runs fully on the client side.
 
-![BT Editor screenshot](https://github.com/user-attachments/assets/04b0ed13-ed28-4e66-acc2-90e21d4d769f)
+![BT Editor latest screenshot](https://github.com/user-attachments/assets/04b0ed13-ed28-4e66-acc2-90e21d4d769f)
 
-## What Changed Recently
+## What's New (Current Main)
 
-The latest commits after `v0.1.0` mainly focused on editor usability and package readiness:
+Recent updates focused on practical editing speed, XML workflow improvements, and integration readiness:
 
-- Renamed the published package to `bt-editor`
-- Kept the standalone app and reusable component library as dual entry modes
-- Improved auto-layout with better sibling ordering and subtree compaction
-- Added beautify layout support for cleaner tree arrangement
-- Enhanced subtree dragging support with modifier-key interactions
-- Upgraded the XML preview panel with formatting and inline editing capabilities
-- Added readonly/view mode support for node model inspection
+- Dual delivery mode maintained and published as `bt-editor`
+- XML format switch (`v3` / `v4`) in toolbar, with safety lock once tree content exists
+- Live XML panel upgraded with:
+  - Per-tab preview mode and full-project main-tree mode
+  - Copy, inline edit, XML validation, and save-back workflow
+  - Resizable + collapsible panel behavior
+- Improved subtree workflow:
+  - Better subtree drag/move interactions (Ctrl/Alt drag)
+  - SubTree references generated from project trees in palette
+  - SubTree target editing and auto-remap support
+- Better layout readability with auto-layout and beautify-style compaction
+- Favorites panel for reusable node templates and quick drag-back to canvas
+- Readonly/view mode for model inspection from node palette
+- PNG export from toolbar for quick sharing/review
+- Live debug connection (Groot2 bridge) + log replay tooling in one panel
+- Missing node model importer flow after XML import
 
-## Feature Highlights
+## Feature Overview
 
-- GRoot2-style canvas editing with drag-and-drop node placement
-- Built-in BT.CPP node categories plus custom node model support
-- Multi-tree project management with `SubTree` references
-- Auto-layout and beautify layout for faster tree cleanup
-- Properties panel for node instance editing
-- XML import/export compatible with `BTCPP_format="3"` and `BTCPP_format="4"`
-- XML preview panel with formatting and editing support
-- Debug/log replay panel with timeline stepping and status highlighting
-- Favorites panel and reusable templates for faster node creation
-- English and Chinese UI support
-- Standalone app mode and embeddable React component mode
+### Canvas and Editing
+
+- GRoot2-style drag-and-drop node editing
+- Connect nodes through typed handles with rule validation
+- Double-click node editing (instance-level fields, ports, conditions)
+- Node picker and node search for quick insertion at cursor/drop position
+
+### Multi-Tree Management
+
+- Create, rename, switch, and delete trees
+- Main-tree designation and tree tabs for parallel editing
+- SubTree reference workflow across trees
+
+### XML Workflow
+
+- Import BehaviorTree.CPP XML projects
+- Export XML from the current project
+- Toggle XML target format (`v3` or `v4`)
+- Live XML preview with local/main mode switch
+- Edit XML in place with parse validation before apply
+
+### Debug and Replay
+
+- Replay text/JSON logs to visualize node status transitions
+- Step/play through timeline and inspect current entry details
+- Connect to runtime through Groot2 bridge (`ws://`) for live status updates
+
+### UX and Productivity
+
+- Light/dark theme toggle
+- English/Chinese language toggle
+- Keyboard shortcuts help panel
+- Favorites, model search/filter, and import-assist dialogs
 
 ## Quick Start
 
@@ -50,29 +81,29 @@ The latest commits after `v0.1.0` mainly focused on editor usability and package
 pnpm install
 ```
 
-### Start the standalone editor
+### Run standalone editor
 
 ```bash
 pnpm dev
 ```
 
-Then open the local URL printed by Vite, typically `http://localhost:5173`.
+Open the URL printed by Vite (typically `http://localhost:5173`).
 
 ## Build
 
-### Build the standalone web app
+### Build standalone web app
 
 ```bash
 pnpm build:web
 ```
 
-### Build the embeddable library
+### Build embeddable library
 
 ```bash
 pnpm build:lib
 ```
 
-### Build both outputs
+### Build both
 
 ```bash
 pnpm build
@@ -80,7 +111,7 @@ pnpm build
 
 ## Use as a React Component
 
-Install the package in your host application and render `BTEditor` inside a container with an explicit size.
+Install the package in your host app and render `BTEditor` inside a sized container.
 
 ```tsx
 import { BTEditor } from "bt-editor";
@@ -96,39 +127,11 @@ export function Example() {
 
 Notes:
 
-- `BTEditor` fills the parent container, so the parent must define width and height
+- `BTEditor` fills the parent container, so parent width/height are required
 - `storageKey` isolates persisted editor state between instances
-- The library build externalizes `react`, `react-dom`, and `react/jsx-runtime`
+- Library output externalizes `react`, `react-dom`, and `react/jsx-runtime`
 
-## Core Workflows
-
-### Editing trees
-
-- Drag nodes from the palette onto the canvas
-- Connect parent and child nodes through handles
-- Use the tree manager to create, rename, switch, and delete Behavior Trees
-- Reference another tree through `SubTree` nodes
-
-### Layout
-
-- Use auto-layout to normalize structure after edits
-- Use beautify layout to compact sibling subtrees and improve readability
-- Sibling ordering is preserved more reliably during layout recalculation
-
-### Import and export
-
-- Import BehaviorTree.CPP XML files into the editor
-- Export the current project back to BT.CPP XML
-- Review and edit generated XML in the XML preview panel
-- Format XML directly in the preview panel before export
-
-### Debug replay
-
-- Load a log file and step through execution state changes
-- Inspect node statuses directly on the canvas
-- Use the panel to replay execution flow without a backend service
-
-## Log Format
+## Debug Log Format
 
 One entry per line:
 
@@ -155,10 +158,10 @@ Supported statuses: `IDLE`, `RUNNING`, `SUCCESS`, `FAILURE`
 | `pnpm build:lib` | Build the component library       |
 | `pnpm build`     | Build both outputs                |
 | `pnpm lint`      | Run ESLint                        |
-| `pnpm test`      | Start Vitest in watch mode        |
+| `pnpm test`      | Start Vitest                      |
 | `pnpm test:run`  | Run Vitest once                   |
 | `pnpm test:e2e`  | Run Playwright end-to-end tests   |
-| `pnpm preview`   | Preview the production web build  |
+| `pnpm preview`   | Preview production web build      |
 
 ## Tech Stack
 
@@ -167,13 +170,13 @@ Supported statuses: `IDLE`, `RUNNING`, `SUCCESS`, `FAILURE`
 - Vite
 - `@xyflow/react` for graph rendering
 - Zustand for state management
-- `@dagrejs/dagre` for layout calculation
+- `@dagrejs/dagre` for layout
 - i18next for localization
-- Vitest and Playwright for test coverage
+- Vitest + Playwright for tests
 
 ## Documentation
 
-Additional design and development notes are available under `docs/`, including:
+See the `docs/` folder for architecture and implementation details:
 
 - `docs/ARCHITECTURE.md`
 - `docs/DEVELOPER_GUIDE.md`
@@ -183,6 +186,6 @@ Additional design and development notes are available under `docs/`, including:
 
 ## Status
 
-Current package version: `0.1.0`
+Current package version: `0.1.2`
 
-Recent development has already moved beyond the original `v0.1.0` release tag, so this README reflects the current `main` branch rather than only the last published release.
+This README describes the current `main` branch behavior.
