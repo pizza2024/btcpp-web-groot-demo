@@ -2376,8 +2376,8 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
         <div
           style={{
             position: 'absolute',
-            top: 12,
-            right: 12,
+            top: hasSubTreeLoopWarning ? 52 : 12,
+            left: 12,
             zIndex: 10,
             display: 'flex',
             alignItems: 'center',

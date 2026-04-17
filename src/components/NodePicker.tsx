@@ -121,7 +121,6 @@ const NodePicker: React.FC<NodePickerProps> = ({ position, onSelect, onClose }) 
     zIndex: 1000,
     width: 260,
     maxHeight: 400,
-    overflow: 'auto',
   };
 
   return (
