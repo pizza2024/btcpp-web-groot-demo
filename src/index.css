@@ -4,8 +4,17 @@
   padding: 0;
 }
 
+@font-face {
+  font-family: 'BTEditor Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   /* Dark theme (default) */
+  --font-mono: 'BTEditor Mono', 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   --bg-primary: #0f0f1e;
   --bg-secondary: #12121f;
   --bg-tertiary: #1a1a2e;
