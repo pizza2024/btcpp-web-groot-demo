@@ -7,6 +7,18 @@ const NODE_GAP_X = 24;
 const NODE_GAP_Y = 64;
 const SUBTREE_COMPACT_GAP_X = 18;
 
+function getNodeWidth(node: Node): number {
+  return typeof node.width === 'number' && Number.isFinite(node.width) && node.width > 0
+    ? node.width
+    : NODE_WIDTH;
+}
+
+function getNodeHeight(node: Node): number {
+  return typeof node.height === 'number' && Number.isFinite(node.height) && node.height > 0
+    ? node.height
+    : NODE_HEIGHT;
+}
+
 function getChildIndex(node: Node): number | undefined {
   const data = node.data as { childIndex?: unknown } | undefined;
   return typeof data?.childIndex === 'number' ? data.childIndex : undefined;
@@ -98,6 +110,40 @@ function orderedTreeLayout(nodes: Node[], edges: Edge[]): Node[] {
     .filter((node) => (incomingCounts.get(node.id) ?? 0) === 0)
     .sort((left, right) => left.id.localeCompare(right.id));
 
+  const depthById = new Map<string, number>();
+  const depthQueue = roots.map((root) => ({ id: root.id, depth: 0 }));
+  while (depthQueue.length > 0) {
+    const current = depthQueue.shift()!;
+    if (depthById.has(current.id)) continue;
+    depthById.set(current.id, current.depth);
+
+    const childIds = sortedChildIdsByParent.get(current.id) ?? [];
+    childIds.forEach((childId) => {
+      depthQueue.push({ id: childId, depth: current.depth + 1 });
+    });
+  }
+
+  nodes.forEach((node) => {
+    if (!depthById.has(node.id)) {
+      depthById.set(node.id, 0);
+    }
+  });
+
+  const maxHeightByDepth = new Map<number, number>();
+  nodes.forEach((node) => {
+    const depth = depthById.get(node.id) ?? 0;
+    const height = getNodeHeight(node);
+    maxHeightByDepth.set(depth, Math.max(maxHeightByDepth.get(depth) ?? 0, height));
+  });
+
+  const depthOffsets = new Map<number, number>();
+  const sortedDepths = [...maxHeightByDepth.keys()].sort((left, right) => left - right);
+  let currentYOffset = 0;
+  sortedDepths.forEach((depth) => {
+    depthOffsets.set(depth, currentYOffset);
+    currentYOffset += (maxHeightByDepth.get(depth) ?? NODE_HEIGHT) + NODE_GAP_Y;
+  });
+
   roots.forEach((root) => {
     measure(root.id);
   });
@@ -110,9 +156,11 @@ function orderedTreeLayout(nodes: Node[], edges: Edge[]): Node[] {
 
     const width = subtreeWidth.get(nodeId) ?? NODE_WIDTH;
     const centerX = leftBound + width / 2;
+    const node = nodeById.get(nodeId);
+    const nodeWidth = node ? getNodeWidth(node) : NODE_WIDTH;
     positions.set(nodeId, {
-      x: centerX - NODE_WIDTH / 2,
-      y: depth * (NODE_HEIGHT + NODE_GAP_Y),
+      x: centerX - nodeWidth / 2,
+      y: depthOffsets.get(depth) ?? depth * (NODE_HEIGHT + NODE_GAP_Y),
     });
     placed.add(nodeId);
 
@@ -160,7 +208,7 @@ function dagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   g.setGraph({ rankdir: 'TB', ranksep: NODE_GAP_Y, nodesep: NODE_GAP_X });
 
   nodes.forEach((n) => {
-    g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    g.setNode(n.id, { width: getNodeWidth(n), height: getNodeHeight(n) });
   });
   edges.forEach((e) => {
     g.setEdge(e.source, e.target);
@@ -170,11 +218,13 @@ function dagreLayout(nodes: Node[], edges: Edge[]): Node[] {
 
   return nodes.map((n) => {
     const pos = g.node(n.id);
+    const width = getNodeWidth(n);
+    const height = getNodeHeight(n);
     return {
       ...n,
       position: {
-        x: pos.x - NODE_WIDTH / 2,
-        y: pos.y - NODE_HEIGHT / 2,
+        x: pos.x - width / 2,
+        y: pos.y - height / 2,
       },
     };
   });

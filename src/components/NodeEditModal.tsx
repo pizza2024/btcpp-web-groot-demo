@@ -100,7 +100,7 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
     setPortRemapEntries(
       Object.entries(portRemap).map(([k, v]) => ({ local: k, external: v }))
     );
-  }, [nodeId, nodeName, isSubTree, autoRemapEnabled, initialDescription, preconditions, postconditions, portRemap]);
+  }, [nodeId]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── Handlers ───────────────────────────────────────────────────────────
