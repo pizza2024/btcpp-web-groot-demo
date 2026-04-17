@@ -189,11 +189,14 @@ function orderedTreeLayout(nodes: Node[], edges: Edge[]): Node[] {
   const leftovers = nodes
     .filter((node) => !placed.has(node.id))
     .sort((left, right) => left.id.localeCompare(right.id));
-  leftovers.forEach((node, index) => {
+  let nextLeftoverLeft = nextRootLeft;
+  leftovers.forEach((node) => {
+    const width = getNodeWidth(node);
     positions.set(node.id, {
-      x: nextRootLeft + index * (NODE_WIDTH + NODE_GAP_X),
+      x: nextLeftoverLeft,
       y: 0,
     });
+    nextLeftoverLeft += width + NODE_GAP_X;
   });
 
   return nodes.map((node) => ({
@@ -311,15 +314,17 @@ function evenlyDistributeChildSubtrees(nodes: Node[], edges: Edge[]): void {
     const rootNode = nodeById.get(rootId);
     if (!rootNode) return { left: NODE_WIDTH / 2, right: NODE_WIDTH / 2 };
 
-    const rootCenter = rootNode.position.x + NODE_WIDTH / 2;
+    const rootWidth = getNodeWidth(rootNode);
+    const rootCenter = rootNode.position.x + rootWidth / 2;
     let minX = Number.POSITIVE_INFINITY;
     let maxX = Number.NEGATIVE_INFINITY;
 
     collectSubtreeNodeIds(rootId, childIdsByParent).forEach((nodeId) => {
       const node = nodeById.get(nodeId);
       if (!node) return;
+      const width = getNodeWidth(node);
       minX = Math.min(minX, node.position.x);
-      maxX = Math.max(maxX, node.position.x + NODE_WIDTH);
+      maxX = Math.max(maxX, node.position.x + width);
     });
 
     return {
@@ -344,7 +349,8 @@ function evenlyDistributeChildSubtrees(nodes: Node[], edges: Edge[]): void {
     if (childNodes.length < 2) return;
 
     const extents = childIds.map((childId) => getSubtreeExtents(childId));
-    const desiredStep = NODE_WIDTH + SUBTREE_COMPACT_GAP_X;
+    const parentWidth = getNodeWidth(parent);
+    const desiredStep = parentWidth + SUBTREE_COMPACT_GAP_X;
     const pairwiseGaps: number[] = [];
     for (let index = 0; index < extents.length - 1; index += 1) {
       const minGap = extents[index].right + extents[index + 1].left + SUBTREE_COMPACT_GAP_X;
@@ -353,14 +359,15 @@ function evenlyDistributeChildSubtrees(nodes: Node[], edges: Edge[]): void {
 
     const totalSpan = pairwiseGaps.reduce((sum, gap) => sum + gap, 0);
 
-    const parentCenter = parent.position.x + NODE_WIDTH / 2;
+    const parentCenter = parent.position.x + parentWidth / 2;
     const firstCenter = parentCenter - totalSpan / 2;
 
     let nextCenter = firstCenter;
     childIds.forEach((childId, index) => {
       const childNode = nodeById.get(childId);
       if (!childNode) return;
-      const currentCenter = childNode.position.x + NODE_WIDTH / 2;
+      const childWidth = getNodeWidth(childNode);
+      const currentCenter = childNode.position.x + childWidth / 2;
       const targetCenter = nextCenter;
       shiftSubtree(childId, targetCenter - currentCenter);
 
@@ -393,8 +400,9 @@ function compactSiblingSubtrees(nodes: Node[], edges: Edge[]): void {
       if (!node) return;
 
       const depth = depthById.get(nodeId) ?? 0;
+      const width = getNodeWidth(node);
       const leftX = node.position.x;
-      const rightX = node.position.x + NODE_WIDTH;
+      const rightX = node.position.x + width;
 
       left.set(depth, Math.min(left.get(depth) ?? Number.POSITIVE_INFINITY, leftX));
       right.set(depth, Math.max(right.get(depth) ?? Number.NEGATIVE_INFINITY, rightX));
@@ -499,17 +507,21 @@ function centerParentsOverChildren(nodes: Node[], edges: Edge[]): void {
     const childBounds = childIds
       .map((childId) => nodeById.get(childId))
       .filter((child): child is Node => Boolean(child))
-      .map((child) => ({ left: child.position.x, right: child.position.x + NODE_WIDTH }));
+      .map((child) => {
+        const width = getNodeWidth(child);
+        return { left: child.position.x, right: child.position.x + width };
+      });
 
     if (childBounds.length < 2) return;
 
     const left = Math.min(...childBounds.map((bound) => bound.left));
     const right = Math.max(...childBounds.map((bound) => bound.right));
     const desiredCenterX = (left + right) / 2;
+    const nodeWidth = getNodeWidth(node);
 
     node.position = {
       ...node.position,
-      x: desiredCenterX - NODE_WIDTH / 2,
+      x: desiredCenterX - nodeWidth / 2,
     };
   });
 }
@@ -526,7 +538,7 @@ function normalizeLayoutCenter(nodes: Node[], edges: Edge[]): void {
   const roots = nodes.filter((node) => (incomingCounts.get(node.id) ?? 0) === 0);
   if (roots.length === 0) return;
 
-  const rootCenters = roots.map((root) => root.position.x + NODE_WIDTH / 2);
+  const rootCenters = roots.map((root) => root.position.x + getNodeWidth(root) / 2);
   const desiredCenter = rootCenters.reduce((sum, center) => sum + center, 0) / rootCenters.length;
 
   nodes.forEach((node) => {

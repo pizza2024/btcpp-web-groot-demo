@@ -214,8 +214,8 @@ const PropertiesPanel: React.FC = () => {
         ...n,
         data: {
           ...n.data,
-          preconditions: Object.keys(cleanPre).length > 0 ? cleanPre : undefined,
-          postconditions: Object.keys(cleanPost).length > 0 ? cleanPost : undefined,
+          preconditions: cleanPre,
+          postconditions: cleanPost,
         },
       };
     });
@@ -227,8 +227,8 @@ const PropertiesPanel: React.FC = () => {
       // Node is in tree - update tree and localNodes
       updateNodeConditions(
         btNode.id,
-        Object.keys(cleanPre).length > 0 ? cleanPre : undefined,
-        Object.keys(cleanPost).length > 0 ? cleanPost : undefined
+        cleanPre,
+        cleanPost
       );
       setLocalCanvas(updated, localEdges);
     } else {
