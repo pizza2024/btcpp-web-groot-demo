@@ -1359,11 +1359,13 @@ const BTCanvas: React.FC<BTCanvasProps> = ({
   // Handle node edit modal trigger
   React.useEffect(() => {
     const handleNodeEdit = (customEvent: CustomEvent<{ nodeId: string }>) => {
+      clearSelection();
+      setSelectedEdgeId(null);
       setEditingNodeId(customEvent.detail.nodeId);
     };
 
     return addEditorWindowEventListener('bt-node-edit', handleNodeEdit);
-  }, []);
+  }, [clearSelection]);
 
   React.useEffect(() => {
     const handleToggleExpandSubTree = (customEvent: CustomEvent<{ nodeId: string }>) => {

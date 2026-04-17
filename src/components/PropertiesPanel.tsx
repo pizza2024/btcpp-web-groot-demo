@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useBTStore, useBTStoreApi } from '../store/BTStoreProvider';
 import type { BTNodeDefinition } from '../types/bt';
@@ -79,6 +80,7 @@ const PropertiesPanel: React.FC = () => {
   // Force re-render when node selection changes
   const nodeKey = selectedNodeId ?? 'none';
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   // Local state for edited port values
   const [localPorts, setLocalPorts] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -112,6 +114,7 @@ const PropertiesPanel: React.FC = () => {
     POST_KEYS.forEach(k => { initPost[k] = btNode?.postconditions?.[k] ?? ''; });
     setLocalPostconditions(initPost);
   }, [nodeKey, btNode?.postconditions]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const allPorts = nodeDef?.ports ?? [];
   const isLeaf = nodeCategory === 'Action' || nodeCategory === 'Condition' || nodeCategory === 'SubTree';
@@ -144,7 +147,7 @@ const PropertiesPanel: React.FC = () => {
     }
     // Notify ReactFlow canvas to refresh nodes from localNodes
     dispatchEditorWindowEvent('bt-nodes-updated');
-  }, [btNode, localPorts, updateNodePorts, setLocalCanvas, project.trees, activeTreeId, readonly]);
+  }, [btNode, localPorts, updateNodePorts, setLocalCanvas, project.trees, activeTreeId, readonly, storeApi]);
 
   // Save handler for name
   const handleSaveName = useCallback(() => {
@@ -166,7 +169,7 @@ const PropertiesPanel: React.FC = () => {
       setLocalCanvas(updated, localEdges);
     }
     dispatchEditorWindowEvent('bt-nodes-updated');
-  }, [btNode, localName, updateNodeName, setLocalCanvas, project.trees, activeTreeId, readonly]);
+  }, [btNode, localName, updateNodeName, setLocalCanvas, project.trees, activeTreeId, readonly, storeApi]);
 
   // Save handler for SubTree target
   const handleSaveSubTree = useCallback(() => {
@@ -188,7 +191,7 @@ const PropertiesPanel: React.FC = () => {
       setLocalCanvas(updated, localEdges);
     }
     dispatchEditorWindowEvent('bt-nodes-updated');
-  }, [btNode, localSubTreeId, updateNodeName, setLocalCanvas, project.trees, activeTreeId, readonly]);
+  }, [btNode, localSubTreeId, updateNodeName, setLocalCanvas, project.trees, activeTreeId, readonly, storeApi]);
 
   // Save handler for pre/post conditions
   const handleSaveConditions = useCallback(() => {
@@ -233,10 +236,39 @@ const PropertiesPanel: React.FC = () => {
       setLocalCanvas(updated, localEdges);
     }
     dispatchEditorWindowEvent('bt-nodes-updated');
-  }, [btNode, localPreconditions, localPostconditions, updateNodeConditions, setLocalCanvas, project.trees, activeTreeId, readonly]);
+  }, [btNode, localPreconditions, localPostconditions, updateNodeConditions, setLocalCanvas, project.trees, activeTreeId, readonly, storeApi]);
 
   const updatePort = (name: string, value: string) => {
     setLocalPorts((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const clearAllPorts = () => {
+    if (readonly) return;
+    setLocalPorts((prev) => {
+      const next = { ...prev };
+      allPorts.forEach((port) => {
+        next[port.name] = '';
+      });
+      return next;
+    });
+  };
+
+  const clearAllPreconditions = () => {
+    if (readonly) return;
+    const next: Record<string, string> = {};
+    PRE_KEYS.forEach((key) => {
+      next[key] = '';
+    });
+    setLocalPreconditions(next);
+  };
+
+  const clearAllPostconditions = () => {
+    if (readonly) return;
+    const next: Record<string, string> = {};
+    POST_KEYS.forEach((key) => {
+      next[key] = '';
+    });
+    setLocalPostconditions(next);
   };
 
   if (!btNode) {
@@ -324,21 +356,48 @@ const PropertiesPanel: React.FC = () => {
 
       {/* Port Values */}
       {allPorts.length > 0 && (
-        <Section title={t('properties.portValues')}>
+        <Section
+          title={t('properties.portValues')}
+          action={(
+            <button
+              type="button"
+              className="btn-small"
+              data-testid="clear-port-all"
+              onClick={clearAllPorts}
+              disabled={readonly}
+            >
+              Clear all
+            </button>
+          )}
+        >
           {allPorts.map((p) => (
             <div key={p.name} className="properties-field-row">
               <label className="properties-field-label" style={{ minWidth: 80 }}>
                 {p.name}
                 <span className="properties-field-dir">({p.direction})</span>
               </label>
-              <input
-                value={localPorts[p.name] ?? ''}
-                onChange={(e) => updatePort(p.name, e.target.value)}
-                placeholder="{}"
-                disabled={readonly}
-                style={inputStyle}
-                title={p.description}
-              />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1 }}>
+                <input
+                  value={localPorts[p.name] ?? ''}
+                  onChange={(e) => updatePort(p.name, e.target.value)}
+                  placeholder="{}"
+                  disabled={readonly}
+                  style={{ ...inputStyle, flex: 1 }}
+                  title={p.description}
+                />
+                <button
+                  type="button"
+                  className="btn-small btn-icon"
+                  data-testid={`clear-port-${p.name}`}
+                  title="Clear field"
+                  aria-label={`Clear port ${p.name}`}
+                  disabled={readonly || !(localPorts[p.name] ?? '').length}
+                  onClick={() => updatePort(p.name, '')}
+                  style={clearIconButtonStyle}
+                >
+                  <X size={12} />
+                </button>
+              </div>
             </div>
           ))}
           <button className="btn-primary properties-save-btn" onClick={handleSavePorts} disabled={readonly}>
@@ -351,7 +410,20 @@ const PropertiesPanel: React.FC = () => {
       )}
 
       {/* Pre-conditions Section */}
-      <Section title={t('properties.preconditions')}>
+      <Section
+        title={t('properties.preconditions')}
+        action={(
+          <button
+            type="button"
+            className="btn-small"
+            data-testid="clear-pre-all"
+            onClick={clearAllPreconditions}
+            disabled={readonly}
+          >
+            Clear all
+          </button>
+        )}
+      >
         <div className="properties-hint" style={{ marginBottom: 6 }}>
           {t('properties.preconditionsDescription')}
         </div>
@@ -360,14 +432,28 @@ const PropertiesPanel: React.FC = () => {
             <label className="properties-field-label" style={{ minWidth: 90 }}>
               {t(`conditions.${PRE_I18N_KEYS[key]}`)}
             </label>
-            <input
-              type="text"
-              value={localPreconditions[key] ?? ''}
-              onChange={(e) => setLocalPreconditions(prev => ({ ...prev, [key]: e.target.value }))}
-              disabled={readonly}
-              placeholder={key === '_while' ? '{key} == value' : '{expression}'}
-              style={inputStyle}
-            />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1 }}>
+              <input
+                type="text"
+                value={localPreconditions[key] ?? ''}
+                onChange={(e) => setLocalPreconditions(prev => ({ ...prev, [key]: e.target.value }))}
+                disabled={readonly}
+                placeholder={key === '_while' ? '{key} == value' : '{expression}'}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn-small btn-icon"
+                data-testid={`clear-pre-${key}`}
+                title="Clear field"
+                aria-label={`Clear ${PRE_I18N_KEYS[key]}`}
+                disabled={readonly || !(localPreconditions[key] ?? '').length}
+                onClick={() => setLocalPreconditions((prev) => ({ ...prev, [key]: '' }))}
+                style={clearIconButtonStyle}
+              >
+                <X size={12} />
+              </button>
+            </div>
           </div>
         ))}
         <button className="btn-primary properties-save-btn" onClick={handleSaveConditions} disabled={readonly}>
@@ -376,7 +462,20 @@ const PropertiesPanel: React.FC = () => {
       </Section>
 
       {/* Post-conditions Section */}
-      <Section title={t('properties.postconditions')}>
+      <Section
+        title={t('properties.postconditions')}
+        action={(
+          <button
+            type="button"
+            className="btn-small"
+            data-testid="clear-post-all"
+            onClick={clearAllPostconditions}
+            disabled={readonly}
+          >
+            Clear all
+          </button>
+        )}
+      >
         <div className="properties-hint" style={{ marginBottom: 6 }}>
           {t('properties.postconditionsDescription')}
         </div>
@@ -385,14 +484,28 @@ const PropertiesPanel: React.FC = () => {
             <label className="properties-field-label" style={{ minWidth: 90 }}>
               {t(`conditions.${POST_I18N_KEYS[key]}`)}
             </label>
-            <input
-              type="text"
-              value={localPostconditions[key] ?? ''}
-              onChange={(e) => setLocalPostconditions(prev => ({ ...prev, [key]: e.target.value }))}
-              disabled={readonly}
-              placeholder="{expression}"
-              style={inputStyle}
-            />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1 }}>
+              <input
+                type="text"
+                value={localPostconditions[key] ?? ''}
+                onChange={(e) => setLocalPostconditions(prev => ({ ...prev, [key]: e.target.value }))}
+                disabled={readonly}
+                placeholder="{expression}"
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn-small btn-icon"
+                data-testid={`clear-post-${key}`}
+                title="Clear field"
+                aria-label={`Clear ${POST_I18N_KEYS[key]}`}
+                disabled={readonly || !(localPostconditions[key] ?? '').length}
+                onClick={() => setLocalPostconditions((prev) => ({ ...prev, [key]: '' }))}
+                style={clearIconButtonStyle}
+              >
+                  <X size={12} />
+              </button>
+            </div>
           </div>
         ))}
         <button className="btn-primary properties-save-btn" onClick={handleSaveConditions} disabled={readonly}>
@@ -406,14 +519,25 @@ const PropertiesPanel: React.FC = () => {
   );
 };
 
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+const Section: React.FC<{ title: string; action?: React.ReactNode; children: React.ReactNode }> = ({ title, action, children }) => (
   <div className="properties-section">
-    <div className="properties-section-title">
-      {title}
+    <div className="properties-section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <span>{title}</span>
+      {action}
     </div>
     {children}
   </div>
 );
+
+const clearIconButtonStyle: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  minWidth: 22,
+  padding: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
 
 const inputStyle: React.CSSProperties = {
   background: 'var(--bg-tertiary)',

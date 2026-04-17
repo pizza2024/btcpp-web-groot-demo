@@ -1019,6 +1019,40 @@ body.is-resizing-columns .sidebar-width-resizer::after {
 }
 .btn-danger:hover { background: var(--bg-active); color: #ff8080; }
 
+.btn-small {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 2px 8px;
+  min-height: 24px;
+  font-size: 11px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-small:hover:not(:disabled) {
+  background: rgba(96, 130, 180, 0.14);
+  border-color: rgba(130, 165, 220, 0.5);
+  color: var(--text-link);
+}
+
+.btn-small:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-small.btn-icon {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+}
+
 /* ─── React Flow overrides ──────────────────────────────────────── */
 .react-flow__attribution { display: none; }
 
@@ -2379,6 +2413,17 @@ input.input-error:focus {
 
 :root.theme-light .btn-danger {
   border-color: #cf8f8f;
+}
+
+:root.theme-light .btn-small {
+  border-color: #c8d3e4;
+  color: #607a9e;
+}
+
+:root.theme-light .btn-small:hover:not(:disabled) {
+  background: rgba(74, 128, 208, 0.12);
+  border-color: #8eb2e4;
+  color: #2f5eaa;
 }
 
 :root.theme-light .context-menu,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { validateConditionExpression } from '../utils/scriptExpressionParser';
 
 interface NodeEditModalProps {
@@ -41,6 +42,16 @@ const POST_LABELS: Record<string, string> = {
   _post: 'Post (any)',
 };
 
+const clearIconButtonStyle: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  minWidth: 22,
+  padding: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+
 const NodeEditModal: React.FC<NodeEditModalProps> = ({
   nodeId, nodeType, nodeCategory, nodeName, ports, preconditions = {}, postconditions = {},
   description: initialDescription = '', portRemap = {},
@@ -49,9 +60,6 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const isSubTree = nodeType === 'SubTree';
   const isLeaf = nodeCategory === 'Action' || nodeCategory === 'Condition';
   const autoRemapEnabled = ports['__autoremap'] === 'true' || ports['__autoremap'] === '1';
-  const preconditionsKey = JSON.stringify(preconditions);
-  const postconditionsKey = JSON.stringify(postconditions);
-  const portRemapKey = JSON.stringify(portRemap);
 
   // ─── Instance state ───────────────────────────────────────────────────
   const [instanceName, setInstanceName] = useState(nodeName ?? '');
@@ -69,6 +77,7 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const [description, setDescription] = useState('');
 
   // ─── Initialize ────────────────────────────────────────────────────────
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setInstanceName(nodeName ?? '');
     setSubTreeTarget(isSubTree ? (nodeName ?? '') : '');
@@ -91,7 +100,8 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
     setPortRemapEntries(
       Object.entries(portRemap).map(([k, v]) => ({ local: k, external: v }))
     );
-  }, [nodeId, nodeName, isSubTree, autoRemapEnabled, initialDescription, preconditionsKey, postconditionsKey, portRemapKey]);
+  }, [nodeId, nodeName, isSubTree, autoRemapEnabled, initialDescription, preconditions, postconditions, portRemap]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── Handlers ───────────────────────────────────────────────────────────
   const handlePreChange = (key: string, value: string) => {
@@ -112,6 +122,24 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
     } else {
       setPostCondErrors(prev => ({ ...prev, [key]: '' }));
     }
+  };
+
+  const clearAllPreConditions = () => {
+    const cleared: Record<string, string> = {};
+    PRE_KEYS.forEach((key) => {
+      cleared[key] = '';
+    });
+    setPreCond(cleared);
+    setPreCondErrors({});
+  };
+
+  const clearAllPostConditions = () => {
+    const cleared: Record<string, string> = {};
+    POST_KEYS.forEach((key) => {
+      cleared[key] = '';
+    });
+    setPostCond(cleared);
+    setPostCondErrors({});
   };
 
   // ─── Port remap handlers ───────────────────────────────────────────────
@@ -184,8 +212,9 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
     onSave({
       name,
       ports, // Pass ports through unchanged
-      preconditions: Object.keys(cleanPre).length > 0 ? cleanPre : undefined,
-      postconditions: Object.keys(cleanPost).length > 0 ? cleanPost : undefined,
+      // Pass empty objects explicitly so callers can persist condition clearing.
+      preconditions: cleanPre,
+      postconditions: cleanPost,
       description: description.trim() || undefined,
       portRemap: Object.keys(cleanPortRemap).length > 0 ? cleanPortRemap : undefined,
     });
@@ -306,10 +335,10 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
                   />
                   <button
                     type="button"
-                    className="btn-small btn-danger"
+                    className="btn-small btn-danger btn-icon"
                     onClick={() => removePortRemap(index)}
                   >
-                    ✕
+                    <X size={12} />
                   </button>
                 </div>
               ))}
@@ -331,20 +360,48 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
           {/* ─── Pre-conditions Section ───────────────────────────────────── */}
           <div className="edit-section">
-            <div className="edit-section-title">
-              Pre-conditions
-              <span className="section-hint">(evaluated before tick)</span>
+            <div
+              className="edit-section-title"
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+            >
+              <span>
+                Pre-conditions
+                <span className="section-hint">(evaluated before tick)</span>
+              </span>
+              <button
+                type="button"
+                className="btn-small"
+                data-testid="clear-pre-all"
+                onClick={clearAllPreConditions}
+              >
+                Clear all
+              </button>
             </div>
             {PRE_KEYS.map(key => (
               <div key={key} className="form-group">
                 <label>{PRE_LABELS[key]}</label>
-                <input
-                  type="text"
-                  value={preCond[key] ?? ''}
-                  onChange={(e) => handlePreChange(key, e.target.value)}
-                  placeholder={key === '_while' ? '{key} == value' : '{expression}'}
-                  className={preCondErrors[key] ? 'input-error' : ''}
-                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={preCond[key] ?? ''}
+                    onChange={(e) => handlePreChange(key, e.target.value)}
+                    placeholder={key === '_while' ? '{key} == value' : '{expression}'}
+                    className={preCondErrors[key] ? 'input-error' : ''}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-small btn-icon"
+                    data-testid={`clear-pre-${key}`}
+                    title="Clear field"
+                    aria-label={`Clear ${PRE_LABELS[key]}`}
+                    onClick={() => handlePreChange(key, '')}
+                    disabled={!preCond[key]?.length}
+                    style={clearIconButtonStyle}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
                 {preCondErrors[key] && (
                   <div className="field-error">{preCondErrors[key]}</div>
                 )}
@@ -354,20 +411,48 @@ const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
           {/* ─── Post-conditions Section ──────────────────────────────────── */}
           <div className="edit-section">
-            <div className="edit-section-title">
-              Post-conditions
-              <span className="section-hint">(script executed after tick)</span>
+            <div
+              className="edit-section-title"
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+            >
+              <span>
+                Post-conditions
+                <span className="section-hint">(script executed after tick)</span>
+              </span>
+              <button
+                type="button"
+                className="btn-small"
+                data-testid="clear-post-all"
+                onClick={clearAllPostConditions}
+              >
+                Clear all
+              </button>
             </div>
             {POST_KEYS.map(key => (
               <div key={key} className="form-group">
                 <label>{POST_LABELS[key]}</label>
-                <input
-                  type="text"
-                  value={postCond[key] ?? ''}
-                  onChange={(e) => handlePostChange(key, e.target.value)}
-                  placeholder="{expression}"
-                  className={postCondErrors[key] ? 'input-error' : ''}
-                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={postCond[key] ?? ''}
+                    onChange={(e) => handlePostChange(key, e.target.value)}
+                    placeholder="{expression}"
+                    className={postCondErrors[key] ? 'input-error' : ''}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-small btn-icon"
+                    data-testid={`clear-post-${key}`}
+                    title="Clear field"
+                    aria-label={`Clear ${POST_LABELS[key]}`}
+                    onClick={() => handlePostChange(key, '')}
+                    disabled={!postCond[key]?.length}
+                    style={clearIconButtonStyle}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
                 {postCondErrors[key] && (
                   <div className="field-error">{postCondErrors[key]}</div>
                 )}
