@@ -55,6 +55,35 @@ describe('autoLayout', () => {
     expect((child?.position.y ?? 0) - (root?.position.y ?? 0)).toBeGreaterThanOrEqual(tallRootHeight + 64);
   });
 
+  it('uses measured dimensions when width/height are not explicitly set', () => {
+    const tallMeasuredHeight = 240;
+    const nodes: Node[] = [
+      {
+        id: 'parent',
+        type: 'btNode',
+        position: { x: 0, y: 0 },
+        data: {},
+        measured: { width: 260, height: tallMeasuredHeight },
+      },
+      {
+        id: 'child',
+        type: 'btNode',
+        position: { x: 0, y: 0 },
+        data: {},
+        measured: { width: 180, height: 60 },
+      },
+    ];
+    const edges: Edge[] = [{ id: 'e1', source: 'parent', target: 'child' }];
+
+    const laidOut = autoLayout(nodes, edges);
+    const parent = laidOut.find((n) => n.id === 'parent');
+    const child = laidOut.find((n) => n.id === 'child');
+
+    expect(parent).toBeDefined();
+    expect(child).toBeDefined();
+    expect((child?.position.y ?? 0) - (parent?.position.y ?? 0)).toBeGreaterThanOrEqual(tallMeasuredHeight + 64);
+  });
+
   it('preserves sibling order from childIndex metadata', () => {
     const nodes: Node[] = [
       { id: 'root', type: 'btNode', position: { x: 0, y: 0 }, data: {} },

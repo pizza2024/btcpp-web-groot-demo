@@ -8,12 +8,22 @@ const NODE_GAP_Y = 64;
 const SUBTREE_COMPACT_GAP_X = 18;
 
 function getNodeWidth(node: Node): number {
+  const measuredWidth = (node as Node & { measured?: { width?: number } }).measured?.width;
+  if (typeof measuredWidth === 'number' && Number.isFinite(measuredWidth) && measuredWidth > 0) {
+    return measuredWidth;
+  }
+
   return typeof node.width === 'number' && Number.isFinite(node.width) && node.width > 0
     ? node.width
     : NODE_WIDTH;
 }
 
 function getNodeHeight(node: Node): number {
+  const measuredHeight = (node as Node & { measured?: { height?: number } }).measured?.height;
+  if (typeof measuredHeight === 'number' && Number.isFinite(measuredHeight) && measuredHeight > 0) {
+    return measuredHeight;
+  }
+
   return typeof node.height === 'number' && Number.isFinite(node.height) && node.height > 0
     ? node.height
     : NODE_HEIGHT;
